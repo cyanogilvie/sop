@@ -1,0 +1,32 @@
+tm "sop" {
+	version 1.1
+
+	summary "State Oriented Programming toolkit"
+
+	description {
+		As concurrency and network-distributed programming becomes more widely
+		used as a design technique, the traditional linear and simple event
+		driven paradigms begin to run into difficulties in realising optimal
+		parallelism in a robust and maintainable way.
+
+		SOP (State Oriented Programming) conceives of such systems as a
+		collection of state networks.  Program flow is implicit as code
+		handlers are dispatched as the result of state changes.  These
+		handlers, or other events driven by sources like network I/O and GUIs
+		change the state of appropriate signals, which ripple through their
+		connected networks.
+	}
+
+	requires {
+		cflib
+	}
+
+	files {
+		scripts/signal.tcl
+		scripts/*.tcl
+	}
+
+	platform tcl
+}
+
+# vim: ft=tcl

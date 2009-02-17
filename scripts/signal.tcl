@@ -54,9 +54,25 @@ cflib::pclass create sop::signal {
 			my detach_output $output
 		}
 
-		foreach key [array names $changewait] {
+		foreach {key info} [array get changewait] {
 			my _debug debug "notifying waiting changewait($key) of our death"
-			set changewait($key)	"source_died"
+			set rest	[lassign $info type state]
+			if {$state ne "waiting"} continue
+			switch -- $type {
+				coro {
+					set coro	[lindex $rest 0]
+					set changewait($key)	[list $type "source_died"]
+					$coro "source_died"
+				}
+
+				vwait {
+					set changewait($key)	[list $type "source_died"]
+				}
+
+				default {
+					puts stderr "Invalid changewait type ($type) when trying to signal source death"
+				}
+			}
 		}
 		if {[self next] ne {}} {next}
 		my _debug debug "tlc::Signal::destructor: [self] truely dead"
@@ -164,12 +180,19 @@ cflib::pclass create sop::signal {
 			dict set afterids waitfor_$myseq	$afterid
 		}
 
-		my _debug debug "tlc::Signal::waitfor: Waiting for [namespace which -variable changewait]($myseq)"
 		set resolved	0
 		while {!($resolved)} {
-			set changewait($myseq)	"waiting"
-			vwait [namespace which -variable changewait]($myseq)
-			set res	$changewait($myseq)
+			if {[info coroutine] ne ""} {
+				set changewait($myseq)	[list coro "waiting" [info coroutine]]
+				set res	[yield]
+			} else {
+				# Blegh
+				puts stderr "Warning: using vwait implementation of waitfor.  Calling from a coroutine context is strongly advised"
+				set changewait($myseq)	[list vwait "waiting"]
+				my _debug debug "tlc::Signal::waitfor: Waiting for [namespace which -variable changewait]($myseq)"
+				vwait [namespace which -variable changewait]($myseq)
+				set res	[lindex $changewait($myseq) 1]
+			}
 			if {[string is boolean $res] && [state] != $normsense} {
 				log warning "Woken up by transient spike while waiting for state $sense, waiting for more permanent change"
 				set resolved	0
@@ -243,9 +266,25 @@ cflib::pclass create sop::signal {
 			my _update_output $output
 		}
 		my _debug debug "tlc::Signal::_update_outputs: Flagging changewaits: ([array names changewait])"
-		foreach key [array names changewait] {
+		foreach {key info} [array get changewait] {
 			my _debug debug "tlc::Signal::_update_outputs: flagging state change for waiting vwait: changewait($key) to ($o_state)"
-			set changewait($key)	$o_state
+			set rest	[lassign $info type state]
+			if {$state ne "waiting"} continue
+			switch -- $type {
+				coro {
+					set coro	[lindex $rest 0]
+					set changewait($key)	[list "coro" $o_state]
+					after idle [list $coro $o_state]
+				}
+
+				vwait {
+					set changewait($key)	[list "vwait" $o_state]
+				}
+
+				default {
+					puts stderr "Invalid changewait type: ($type)"
+				}
+			}
 		}
 	}
 
@@ -274,7 +313,27 @@ cflib::pclass create sop::signal {
 
 	#>>>
 	method _changewait_timeout {myseq} { #<<<
-		set changewait($myseq)	"timeout"
+		if {![info exists changewait($myseq)]} {
+			puts stderr "cannot timeout: changewait($myseq) vanished!"
+			return
+		}
+		set rest	[lassign $info type state]
+		if {$state ne "waiting"} continue
+		switch -- $type {
+			coro {
+				set coro	[lindex $rest 0]
+				set changewait($key)	[list "coro" "timeout"]
+				after idle [list $coro "timeout"]
+			}
+
+			vwait {
+				set changewait($myseq)	[list "vwait" "timeout"]
+			}
+
+			default {
+				puts stderr "Invalid changewait type: ($type)"
+			}
+		}
 	}
 
 	#>>>
