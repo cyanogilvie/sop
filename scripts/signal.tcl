@@ -193,7 +193,7 @@ cflib::pclass create sop::signal {
 				vwait [namespace which -variable changewait]($myseq)
 				set res	[lindex $changewait($myseq) 1]
 			}
-			if {[string is boolean $res] && [state] != $normsense} {
+			if {[string is boolean $res] && [my state] != $normsense} {
 				log warning "Woken up by transient spike while waiting for state $sense, waiting for more permanent change"
 				set resolved	0
 			} else {
@@ -317,12 +317,12 @@ cflib::pclass create sop::signal {
 			puts stderr "cannot timeout: changewait($myseq) vanished!"
 			return
 		}
-		set rest	[lassign $info type state]
+		set rest	[lassign $changewait($myseq) type state]
 		if {$state ne "waiting"} continue
 		switch -- $type {
 			coro {
 				set coro	[lindex $rest 0]
-				set changewait($key)	[list "coro" "timeout"]
+				set changewait($myseq)	[list "coro" "timeout"]
 				after idle [list $coro "timeout"]
 			}
 

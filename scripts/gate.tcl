@@ -137,7 +137,7 @@ cflib::pclass create sop::gate {
 	method explain_txt {{depth 0}} { #<<<
 		set txt	""
 		set firstdepth	[expr {($depth > 0) ? $depth-1 : 0}]
-		append txt "[self] \"[[self] name]\": [[self] state]\[$default\] [string toupper [[self] cget -mode]] (\n"
+		append txt "[self] \"[[self] name]\": [[self] state]\[$default\] [string toupper $mode] (\n"
 		foreach key [dict keys $inputs] {
 	#		append txt "[string repeat {  } $firstdepth]"
 			append txt "[string repeat {  } $depth]"
