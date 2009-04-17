@@ -110,7 +110,7 @@ cflib::pclass create sop::gate {
 		trace add variable $varname {write unset} \
 				[my code _var_input_update $varname]
 
-		my _var_input_update $varname $varname "" write	
+		my _var_input_update $varname $varname "" write
 	}
 
 	#>>>
