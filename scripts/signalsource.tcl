@@ -33,10 +33,10 @@ cflib::pclass create sop::signalsource {
 
 	#>>>
 	method waitfor {signal {timeout 0}} { #<<<
-		if {![info exists signals($signame)]} {
-			throw [list invalid_signal $signame] "Invalid signal ($signame)"
+		if {![info exists signals($signal)]} {
+			throw [list invalid_signal $signal] "Invalid signal ($signal)"
 		}
-		$signals($signame) waitfor true $timeout
+		$signals($signal) waitfor true $timeout
 	}
 
 	#>>>
