@@ -125,7 +125,7 @@ cflib::pclass create sop::domino {
 		set after_id	""
 		foreach output $outputs {
 			try {
-				uplevel #0 $output
+				coroutine coro_domino_output_[incr ::coro_seq] {*}$output
 			} on error {errmsg options} {
 				my log error "\nerror updating output ($output):\n\t$errmsg\n[dict get $options -errorinfo]"
 			}

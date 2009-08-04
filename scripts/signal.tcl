@@ -137,7 +137,8 @@ cflib::pclass create sop::signal {
 			if {[dict exists $cleanups $handler]} {
 				my _debug debug "tlc::Signal::detach_output: cleaning up ($handler)"
 				my _debug debug "tlc::Signal::detach_output: foo"
-				uplevel #0 [dict get $cleanups $handler]
+				coroutine coro_handler_cleanup_[incr ::coro_seq] \
+					{*}[dict get $cleanups $handler]
 				my _debug debug "tlc::Signal::detach_output: bar"
 				dict unset cleanups $handler
 			}
@@ -248,7 +249,8 @@ cflib::pclass create sop::signal {
 			dict set afterids update_output_$handler	$pending_afterid
 		}
 		try {
-			uplevel #0 $handler [list $o_state]
+			coroutine coro_update_output_[incr ::coro_seq] \
+					{*}$handler $o_state
 		} on error {errmsg options} {
 			my log error "\n\"$name\" error updating output ($o_state) handler: ($handler) $name ([self]): $errmsg\n[dict get $options -errorinfo]"
 		}
