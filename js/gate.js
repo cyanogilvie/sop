@@ -1,13 +1,11 @@
-Gate.prototype = new Signal;
-Gate.prototype.constructor = Gate;
 
 function Gate(params) { //<<<
-	//Signal.call(this);
+	Signal.call(this, params);
 
 	this.mode = "or";
-	this.default = false;
-	this._inputs = new Hash;
-	this._sense = new Hash;
+	this.defaultval = false;
+	this._inputs = new Hash();
+	this._sense = new Hash();
 	this._inputseq = 0;
 
 	if (typeof params != 'undefined') {
@@ -17,17 +15,21 @@ function Gate(params) { //<<<
 		if (typeof params.mode != 'undefined') {
 			this.mode = params.mode;
 		}
-		if (typeof params.default != 'undefined') {
-			if (params.default) {
-				this.default = true;
+		if (typeof params.defaultval != 'undefined') {
+			if (params.defaultval) {
+				this.defaultval = true;
 			} else {
-				this.default = false;
+				this.defaultval = false;
 			}
 		}
 	}
 }
 
 //>>>
+
+Gate.prototype = new Signal();
+Gate.prototype.constructor = Gate;
+
 Gate.prototype.destroy = function() { //<<<
 	var keys, i, input;
 	keys = this._inputs.keys();
@@ -39,7 +41,7 @@ Gate.prototype.destroy = function() { //<<<
 	}
 
 	return Signal.call(this);
-}
+};
 
 //>>>
 Gate.prototype.setMode = function(newmode) { //<<<
@@ -58,7 +60,7 @@ Gate.prototype.setMode = function(newmode) { //<<<
 
 //>>>
 Gate.prototype.setDefault = function(newdefault) { //<<<
-	this.default = newdefault;
+	this.defaultval = newdefault;
 	this._calc_o_state();
 };
 
@@ -135,7 +137,7 @@ Gate.prototype.explain_txt = function(depth) { //<<<
 	}
 	firstdepth = (depth > 0) ? depth-1 : 0;
 
-	txt = '"'+this.name+'": '+this._o_state+'['+this.default+'] '+this.mode.toUpperCase()+' (\n';
+	txt = '"'+this.name+'": '+this._o_state+'['+this.defaultval+'] '+this.mode.toUpperCase()+' (\n';
 
 	keys = this._inputs.keys();
 	for (i=0; i<keys.length; i++) {
@@ -165,8 +167,8 @@ Gate.prototype._calc_o_state = function() { //<<<
 
 	mode = this.mode.toLowerCase();
 	keys = this._inputs.keys();
-	if (keys.length == 0) {
-		new_o_state = this.default;
+	if (keys.length === 0) {
+		new_o_state = this.defaultval;
 	} else {
 		switch (mode) {
 			case 'and':
@@ -181,7 +183,9 @@ Gate.prototype._calc_o_state = function() { //<<<
 
 		for (i=0; i<keys.length; i++) {
 			input = this._inputs.getItem(keys[i]);
-			if (input.state === null) continue;
+			if (input.state === null) {
+				continue;
+			}
 
 			cont = true;
 			switch (mode) {
@@ -210,7 +214,9 @@ Gate.prototype._calc_o_state = function() { //<<<
 					break;
 			}
 
-			if (!cont) break;
+			if (!cont) {
+				break;
+			}
 		}
 
 		new_o_state = assume;

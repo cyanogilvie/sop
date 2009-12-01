@@ -42,12 +42,20 @@ function Hash() { //<<<
 	};
 
 	this.keys = function() {
-		var keys;
+		var keys, item;
 		keys = [];
 		for (item in this.items) {
 			keys.push(item);
 		}
 		return keys;
+	};
+
+	this.forEach = function(func) {
+		var item;
+
+		for (item in this.items) {
+			func(item, this.items[item]);
+		}
 	};
 }
 

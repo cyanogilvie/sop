@@ -1,24 +1,39 @@
-Signal.prototype = new Baselog;
-Signal.prototype.constructor = Signal;
+//var g_update_output_depth = 0;
 
-function Signal() { //<<<
+function Signal(params) { //<<<
 	// Public
+	if (typeof params == 'undefined') {
+		console.log('Signal lameness');
+		return;
+	}
+	Baselog.call(this, params);
 	this.name = "";
 
+	if (typeof params != 'undefined') {
+		if (typeof params.name != 'undefined') {
+			this.name = params.name;
+		}
+	}
+
 	// Private
-	this._outputs = new Hash;
-	this._cleanups = new Hash;
+	this._outputs = new Hash();
+	//console.log('Constructing new Signal: ('+this.name+')');
+	this._cleanups = new Hash();
 	this._o_state = false;
 	this._handler_seq = 0;
 }
 
 //>>>
+Signal.prototype = new Baselog();
+Signal.prototype.constructor = Signal;
+
 Signal.prototype.destroy = function() { //<<<
-	this.log('debug', 'in destructor');
+	//this.log('debug', 'in destructor');
+	//console.log('in signal destructor');
 	var i, keys;
 	keys = this._outputs.keys();
 	for (i=0; i<keys.length; i++) {
-		this.log('debug', 'destructor detaching output "'+keys[i]+'"');
+		//this.log('debug', 'destructor detaching output "'+keys[i]+'"');
 		this.detach_output(keys[i]);
 	}
 };
@@ -39,10 +54,12 @@ Signal.prototype.set_state = function(newstate) { //<<<
 	}
 
 	this._on_set_state(normstate);
-	if (this._o_state == normstate) return
-	this.log('debug', '"'+this.name+'" setting output to '+normstate);
+	if (this._o_state === normstate) {
+		return;
+	}
+	//this.log('debug', '"'+this.name+'" setting output to '+normstate+' from ('+this._o_state+')');
 	this._o_state = normstate;
-	this.log('debug', '"'+this.name+'" updating outputs to '+this._o_state);
+	//this.log('debug', '"'+this.name+'" updating outputs to '+this._o_state);
 	this._update_outputs();
 };
 
@@ -73,7 +90,9 @@ Signal.prototype.attach_output = function(handler, cleanup) { //<<<
 Signal.prototype.detach_output = function(handler_id) { //<<<
 	var cleanup;
 
-	if (!this._outputs.hasItem(handler_id)) return;
+	if (!this._outputs.hasItem(handler_id)) {
+		return;
+	}
 	cleanup = this._outputs.getItem(handler_id).cleanup;
 	if (cleanup) {
 		cleanup();
@@ -88,17 +107,18 @@ Signal.prototype.name = function() { //<<<
 
 //>>>
 Signal.prototype.explain_txt = function(depth) { //<<<
-	var i, pad;
+	var pad;
 	if (typeof depth == 'undefined') {
 		depth = 0;
 	}
 	pad = '';
 	/*
+	var i;
 	for (i=0; i<depth; i++) {
 		pad += '  ';
 	}
 	*/
-	this.log('debug', '"'+this.name+'" explain_txt: this._o_state: '+this._o_state);
+	//this.log('debug', '"'+this.name+'" explain_txt: this._o_state: '+this._o_state);
 	return pad+' "'+this.name+'": '+this._o_state+'\n';
 };
 
@@ -124,7 +144,15 @@ Signal.prototype._update_output = function(handler_id) { //<<<
 		this.log('error', '"'+self.name+'" error updating output ('+statenow+') handler_id: ('+handler_id+') '+e);
 	}
 	*/
+	/*
+	g_update_output_depth++;
+	self.log('debug', '-> "'+self.name+'" _update_output calling to update state ('+self._o_state+') '+g_update_output_depth);
+	*/
 	self._outputs.getItem(handler_id).handler(statenow);
+	/*
+	self.log('debug', '<- "'+self.name+'" _update_output calling to update state ('+self._o_state+') '+g_update_output_depth);
+	g_update_output_depth--;
+	*/
 };
 
 //>>>
@@ -133,14 +161,16 @@ Signal.prototype._update_outputs = function() { //<<<
 
 	keys = this._outputs.keys();
 	for (i=0; i<keys.length; i++) {
+		//this.log('debug', '=> "'+this.name+'" _update_outputs '+i+' calling to update state ('+this._o_state+') '+ g_update_output_depth);
 		this._update_output(keys[i]);
+		//this.log('debug', '<= "'+this.name+'" _update_outputs '+i+' calling to update state ('+this._o_state+') '+ g_update_output_depth);
 	}
-}
+};
 
 //>>>
 Signal.prototype._on_set_state = function(pending) { //<<<
 	// Nothing
-}
+};
 
 //>>>
 
