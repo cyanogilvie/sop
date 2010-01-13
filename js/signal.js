@@ -3,7 +3,6 @@
 function Signal(params) { //<<<
 	// Public
 	if (typeof params == 'undefined') {
-		console.log('Signal lameness');
 		return;
 	}
 	Baselog.call(this, params);
@@ -36,6 +35,7 @@ Signal.prototype.destroy = function() { //<<<
 		//this.log('debug', 'destructor detaching output "'+keys[i]+'"');
 		this.detach_output(keys[i]);
 	}
+	return null;
 };
 
 //>>>

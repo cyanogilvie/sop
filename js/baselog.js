@@ -3,6 +3,10 @@ function Baselog() {
 
 	if (typeof window != 'undefined' && typeof window.console != 'undefined') {
 		this.log = function(lvl, msg) {
+			if (typeof msg == 'undefined') {
+				console.warn('Missing lvl parameter, '+lvl);
+				return;
+			}
 			switch (lvl) {
 				case 'debug':
 					console.log(msg);
