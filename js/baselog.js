@@ -29,13 +29,13 @@ function Baselog() {
 					break;
 			}
 		}
-	} else if (typeof print != 'undefined') {
-		this.log = function(lvl, msg) {
-			print(msg);
-		}
 	} else if (typeof dump != 'undefined') {
 		this.log = function(lvl, msg) {
 			dump(msg);
+		}
+	} else if (typeof print != 'undefined') {
+		this.log = function(lvl, msg) {
+			print(msg);
 		}
 	}
 }

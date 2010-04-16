@@ -24,7 +24,7 @@ function Domino(params) {
 Domino.prototype = new Baselog();
 Domino.prototype.constructor = Domino;
 
-Domino.prototype.destructor = function() { //<<<<
+Domino.prototype.destroy = function() { //<<<<
 	this._cancel_after_id();
 	return null;
 };
