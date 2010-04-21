@@ -101,6 +101,14 @@ cflib::pclass create sop::domino {
 	}
 
 	#>>>
+	method cancel_if_pending {} { #<<<
+		if {$after_id ne ""} {
+			after cancel $after_id
+			set after_id	""
+		}
+	}
+
+	#>>>
 	method lock {} { #<<<
 		incr lock
 	}
