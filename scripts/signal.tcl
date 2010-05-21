@@ -24,6 +24,7 @@ cflib::pclass create sop::signal {
 
 	constructor {accessvar args} { #<<<
 		my variable outputs o_state
+		set name		""
 		set outputs		{}
 		set o_state		0
 		set seq			0

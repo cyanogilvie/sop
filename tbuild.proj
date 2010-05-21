@@ -1,5 +1,5 @@
 tm "sop" {
-	version 1.3
+	version 1.4
 
 	summary "State Oriented Programming toolkit"
 
@@ -23,6 +23,7 @@ tm "sop" {
 
 	files {
 		scripts/signal.tcl
+		scripts/gate.tcl
 		scripts/*.tcl
 	}
 
