@@ -26,13 +26,14 @@ function Hash() { //<<<
 	};
 
 	this.setItem = function(in_key, in_value) {
-		if (typeof in_value != 'undefined') {
-			if (typeof this.items[in_key] == 'undefined') {
-				this.length++;
-			}
-
-			this.items[in_key] = in_value;
+		if (typeof in_value == 'undefined') {
+			throw('setItem: Value for "'+in_key+'" is undefined');
 		}
+		if (typeof this.items[in_key] == 'undefined') {
+			this.length++;
+		}
+
+		this.items[in_key] = in_value;
 
 		return in_value;
 	};
