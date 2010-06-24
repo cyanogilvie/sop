@@ -21,9 +21,6 @@ function Domino(params) {
 	}
 }
 
-Domino.prototype = new Baselog();
-Domino.prototype.constructor = Domino;
-
 Domino.prototype.destroy = function() { //<<<<
 	this._cancel_after_id();
 	return null;
@@ -103,7 +100,7 @@ Domino.prototype.lock = function() { //<<<<
 Domino.prototype.unlock = function() { //<<<<
 	this._lock--;
 	if (this._lock < 0) {
-		this.log('warning', 'domino lock went below 0');
+		log.warn('domino lock went below 0');
 		this._lock = 0;
 	}
 };
@@ -128,7 +125,7 @@ Domino.prototype._tip_outputs = function() { //<<<<
 		try {
 			this._outputs.getItem(keys[i]).handler();
 		} catch (e) {
-			this.log('error', 'Error dispatching domino "'+this.name+'" output: '+e);
+			log.error('Error dispatching domino "'+this.name+'" output: '+e);
 		}
 	}
 };
