@@ -71,7 +71,7 @@ cflib::pclass create sop::signal {
 				}
 
 				default {
-					puts stderr "Invalid changewait type ($type) when trying to signal source death"
+					my _debug error "Invalid changewait type ($type) when trying to signal source death"
 				}
 			}
 		}
@@ -189,7 +189,7 @@ cflib::pclass create sop::signal {
 				set res	[yield]
 			} else {
 				# Blegh
-				puts stderr "Warning: using vwait implementation of waitfor.  Calling from a coroutine context is strongly advised"
+				my _debug warning "Warning: using vwait implementation of waitfor.  Calling from a coroutine context is strongly advised"
 				set changewait($myseq)	[list vwait "waiting"]
 				my _debug debug "tlc::Signal::waitfor: Waiting for [namespace which -variable changewait]($myseq)"
 				vwait [namespace which -variable changewait]($myseq)
@@ -285,7 +285,7 @@ cflib::pclass create sop::signal {
 				}
 
 				default {
-					puts stderr "Invalid changewait type: ($type)"
+					my _debug error "Invalid changewait type: ($type)"
 				}
 			}
 		}
@@ -317,7 +317,7 @@ cflib::pclass create sop::signal {
 	#>>>
 	method _changewait_timeout {myseq} { #<<<
 		if {![info exists changewait($myseq)]} {
-			puts stderr "cannot timeout: changewait($myseq) vanished!"
+			my _debug error "cannot timeout: changewait($myseq) vanished!"
 			return
 		}
 		set rest	[lassign $changewait($myseq) type state]
@@ -334,7 +334,7 @@ cflib::pclass create sop::signal {
 			}
 
 			default {
-				puts stderr "Invalid changewait type: ($type)"
+				my _debug error "Invalid changewait type: ($type)"
 			}
 		}
 	}
