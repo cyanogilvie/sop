@@ -81,9 +81,11 @@ cflib::pclass create sop::signal {
 
 	#>>>
 
-	method state {} { #<<<
-		my variable o_state
-		return $o_state
+	method state {args} { #<<<
+		switch -exact -- [llength $args] {
+			0		{set o_state}
+			default	{tailcall my set_state {*}$args}
+		}
 	}
 
 	#>>>
