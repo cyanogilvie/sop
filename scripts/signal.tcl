@@ -323,7 +323,7 @@ cflib::pclass create sop::signal {
 			return
 		}
 		set rest	[lassign $changewait($myseq) type state]
-		if {$state ne "waiting"} continue
+		if {$state ne "waiting"} return
 		switch -- $type {
 			coro {
 				set coro	[lindex $rest 0]
