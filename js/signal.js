@@ -119,8 +119,14 @@ Signal.prototype.explain_txt = function(depth) { //<<<
 
 //>>>
 Signal.prototype._update_output = function(handler_id) { //<<<
+	var handler_info;
 	if (this._outputs.hasItem(handler_id)) {
-		this._outputs.getItem(handler_id).handler(this._o_state);
+		handler_info = this._outputs.getItem(handler_id);
+		if (handler_info.handler) {
+			handler_info.handler(this._o_state);
+		} else {
+			log.error('Something went badly wrong with handler_info: ', handler_info);
+		}
 	} else {
 		log.warn('Signal "'+this.name+'" output ('+handler_id+') has vanished');
 	}

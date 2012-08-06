@@ -46,7 +46,9 @@ function Hash() { //<<<
 		var keys, item;
 		keys = [];
 		for (item in this.items) {
-			keys.push(item);
+			if (this.items.hasOwnProperty(item)) {
+				keys.push(item);
+			}
 		}
 		return keys;
 	};
@@ -55,7 +57,9 @@ function Hash() { //<<<
 		var item;
 
 		for (item in this.items) {
-			func(item, this.items[item]);
+			if (this.items.hasOwnProperty(item)) {
+				func(item, this.items[item]);
+			}
 		}
 	};
 }
