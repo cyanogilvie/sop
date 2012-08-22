@@ -1,7 +1,7 @@
 /*global define */
 /*jslint nomen: true, plusplus: true, white: true, browser: true, node: true */
 
-define(['dojo/_base/declare', 'cf/log'], function(declare, log){
+define(['dojo/_base/declare', 'cflib/log'], function(declare, log){
 	"use strict";
 	return declare([], {
 		name:			'',
@@ -105,7 +105,7 @@ define(['dojo/_base/declare', 'cf/log'], function(declare, log){
 					try {
 						this._outputs[e].handler();
 					} catch (err) {
-						log.error('Error dispatching domino "'+this.name+'" output: '+err);
+						log.error('Error dispatching domino "'+this.name+'" output: '+err+'\n'+err.stack);
 					}
 				}
 			}

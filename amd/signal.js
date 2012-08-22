@@ -3,7 +3,7 @@
 
 define([
 	'dojo/_base/declare',
-	'cf/log'
+	'cflib/log'
 ], function(
 	declare,
 	log
