@@ -58,7 +58,7 @@ define([
 		},
 
 		attach_output: function(handler, cleanup) {
-			var myseq;
+			var myseq, self = this;
 			myseq = this._handler_seq++;
 			this._outputs[myseq] = {
 				handler: handler,
@@ -67,7 +67,10 @@ define([
 
 			this._update_output(myseq);
 
-			return myseq;
+			return {
+				remove: function(){self.detach_output(myseq);},
+				toString: function(){return String(myseq);}
+			}
 		},
 
 		detach_output: function(handler_id) {

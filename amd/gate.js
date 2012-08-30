@@ -81,7 +81,11 @@ define(['dojo/_base/declare', './signal'], function(declare, signal){
 			if (this._inputs[inputid]) {
 				input = this._inputs[inputid];
 				delete this._inputs[inputid];
-				input.signal.detach_output(input.signal.hid);
+				if (input.signal.hid.remove) {
+					input.signal.hid.remove();
+				} else {
+					input.signal.detach_output(input.signal.hid);
+				}
 			}
 
 			this._calc_o_state();
