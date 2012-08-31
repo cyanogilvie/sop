@@ -2,9 +2,11 @@
 /*jslint nomen: true, plusplus: true, white: true, browser: true, node: true */
 
 define([
-	'dojo/_base/declare'
+	'dojo/_base/declare',
+	'cflib/log'
 ], function(
-	declare
+	declare,
+	log
 ){
 "use strict";
 return declare([], {
@@ -26,7 +28,11 @@ return declare([], {
 
 		for (e in this.signals) {
 			if (this.signals.hasOwnProperty(e)) {
-				this.signals[e].destroy();
+				if (!this.signals[e] || !this.signals[e].destroy) {
+					log.error('Expecting to destroy signal '+e+', but it was already gone:',this.signals[e]);
+				} else {
+					this.signals[e].destroy();
+				}
 				delete this.signals[e];
 			}
 		}
