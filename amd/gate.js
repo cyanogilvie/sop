@@ -13,6 +13,10 @@ define(['dojo/_base/declare', './signal'], function(declare, signal){
 		constructor: function() {
 			this._inputs = {};
 			this._sense = {};
+
+			// Otherwise _o_state doesn't reflect defaultval if no inputs are
+			// ever attached
+			this._calc_o_state();
 		},
 
 		destructor: function() {
