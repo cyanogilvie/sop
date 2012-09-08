@@ -13,13 +13,21 @@ define(['dojo/_base/declare', './signal'], function(declare, signal){
 		constructor: function() {
 			this._inputs = {};
 			this._sense = {};
+
+			// Otherwise _o_state doesn't reflect defaultval if no inputs are
+			// ever attached
+			this._calc_o_state();
 		},
 
 		destructor: function() {
 			var e;
 			for (e in this._inputs) {
 				if (this._inputs.hasOwnProperty(e)) {
-					this._inputs[e].signal.detach_output(this._inputs[e].hid);
+					if (this._inputs[e].hid.remove) {
+						this._inputs[e].hid.remove();
+					} else {
+						this._inputs[e].signal.detach_output(this._inputs[e].hid);
+					}
 					delete this._inputs[e];
 					delete this._sense[e];
 				}
