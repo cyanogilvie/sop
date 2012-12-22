@@ -53,13 +53,21 @@ define(['dojo/_base/declare', 'cflib/log'], function(declare, log){
 		},
 
 		attach_output: function(handler) {
-			var myseq;
+			var myseq, self=this;
 			myseq = this._handler_seq++;
 			this._outputs[myseq] = {
 				handler: handler
 			};
 
-			return myseq;
+			return {
+				handlerid: myseq,
+				toString: function(){
+					return myseq;
+				},
+				remove: function(){
+					self.detach_output(myseq);
+				}
+			};
 		},
 
 		detach_output: function(handler_id) {
