@@ -13,13 +13,15 @@ define(['dojo/_base/declare', './signal'], function(declare, signal){
 		constructor: function() {
 			this._inputs = {};
 			this._sense = {};
+		},
 
+		postMixInProperties: function(){
 			// Otherwise _o_state doesn't reflect defaultval if no inputs are
 			// ever attached
 			this._calc_o_state();
 		},
 
-		destructor: function() {
+		destroy: function() {
 			var e;
 			for (e in this._inputs) {
 				if (this._inputs.hasOwnProperty(e)) {

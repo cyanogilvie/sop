@@ -4,21 +4,20 @@ define([
 	'dojo/_base/declare',
 	'dojo/_base/lang',
 	'dijit/registry',
-	'cflib/setters',
 	'./gate'
 ], function(
 	declare,
 	lang,
 	registry,
-	Setters,
 	Gate
 ){
-'use strict';
-return declare([Setters, Gate], {
+//'use strict';
+return declare([Gate], {
 	widget: null,
 	toggles: null,
 
-	constructor: function(){
+	postMixInProperties: function(){
+		this.inherited(arguments);
 		this.attach_output(lang.hitch(this, '_apply_toggles'));
 	},
 
@@ -50,7 +49,7 @@ return declare([Setters, Gate], {
 		widgets = this.widget instanceof Array ? this.widget : [this.widget];
 		for (i=0; i<widgets.length; i++) {
 			widget = widgets[i];
-			if (lang.isObject(widget) && widget.set !== undefined) {
+			if (lang.isObject(widget) && !widget._beingDestroyed && widget.set !== undefined) {
 				for (e in this.toggles) {
 					if (this.toggles.hasOwnProperty(e)) {
 						widget.set(e, this.toggles[e][idx]);
@@ -62,7 +61,7 @@ return declare([Setters, Gate], {
 
 	// Deprecated - use attach_input
 	attach_signal: function(/* args */) {
-		this.attach_input.apply(this, arguments);
+		return this.attach_input.apply(this, arguments);
 	}
 });
 });

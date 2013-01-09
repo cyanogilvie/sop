@@ -8,17 +8,12 @@ define([
 	declare,
 	log
 ){
-"use strict";
-return declare([], {
+//"use strict";
+return declare(null, {
 	signals: null,
 	_signals: null,			// Deprecated
 
-	'-chains-': {
-		destroy: 'before'
-	},
-
 	constructor: function(props) {
-		declare.safeMixin(this, props);
 		this.signals = {};
 		this._signals = this.signals;
 	},
@@ -36,6 +31,8 @@ return declare([], {
 				delete this.signals[e];
 			}
 		}
+
+		this.inherited(arguments);
 	},
 
 	signal_ref: function(name) {

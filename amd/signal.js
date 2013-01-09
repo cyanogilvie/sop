@@ -3,26 +3,28 @@
 
 define([
 	'dojo/_base/declare',
+	'cflib/setters',
 	'cflib/log'
 ], function(
 	declare,
+	_Setters,
 	log
 ){
 	"use strict";
-	return declare([], {
+	return declare([_Setters], {
 		name: '',
-
-		'-chains-': {
-			destroy: 'before'
-		},
 
 		_outputs: null,
 		_cleanups: null,
 		_o_state: false,
 		_handler_seq: 0,
 
+		'-chains-': {
+			postMixInProperties: 'after',
+			destroy: 'before'
+		},
+
 		constructor: function(props) {
-			declare.safeMixin(this, props);
 			this._outputs = {};
 			this._cleanups = {};
 		},
