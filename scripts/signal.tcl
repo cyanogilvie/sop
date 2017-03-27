@@ -198,7 +198,12 @@ cflib::pclass create sop::signal {
 				set res	[lindex $changewait($myseq) 1]
 			}
 			if {[string is boolean $res] && [my state] != $normsense} {
-				log warning "Woken up by transient spike while waiting for state $sense, waiting for more permanent change"
+				log warning "Woken up by transient spike while waiting for state $sense, waiting for more permanent change ($name)"
+				?? {
+					if {[info object class [self]] eq "::sop::gate"} {
+						log warning [my explain_txt]
+					}
+				}
 				set resolved	0
 			} else {
 				set resolved	1
@@ -245,6 +250,11 @@ cflib::pclass create sop::signal {
 
 	method _update_output {handler} { #<<<
 		my variable o_state
+
+		# This can happen in a previously updated output removed this one, but
+		# we're still working through the list
+		if {$handler ni $outputs} return
+
 		#puts stderr "Signal::_update_output($o_state): $name ([self]) update output ($handler)"
 		if {$debugmode} {
 			set pending_afterid	[after $output_handler_warntime \
