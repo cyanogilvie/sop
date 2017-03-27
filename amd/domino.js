@@ -1,15 +1,19 @@
 /*global define */
 /*jslint nomen: true, plusplus: true, white: true, browser: true, node: true */
 
-define(['dojo/_base/declare', 'cflib/log'], function(declare, log){
-	"use strict";
-	return declare([], {
+define([
+	'dojo/_base/declare',
+	'cflib/setters',
+	'cflib/log'
+], function(
+	declare,
+	_Setters,
+	log
+){
+	//"use strict";
+	return declare([_Setters], {
 		name:			'',
 		delay:			0,
-
-		"-chains-": {
-			destroy: 'before'
-		},
 
 		_after_id:		null,
 		_handler_seq:	0,
@@ -17,12 +21,12 @@ define(['dojo/_base/declare', 'cflib/log'], function(declare, log){
 		_lock:			0,
 
 		constructor: function(props) {
-			declare.safeMixin(this, props);
 			this._outputs = {};
 		},
 
 		destroy: function() {
 			this._cancel_after_id();
+			this.inherited(arguments);
 		},
 
 		tip: function() {
@@ -53,13 +57,21 @@ define(['dojo/_base/declare', 'cflib/log'], function(declare, log){
 		},
 
 		attach_output: function(handler) {
-			var myseq;
+			var myseq, self=this;
 			myseq = this._handler_seq++;
 			this._outputs[myseq] = {
 				handler: handler
 			};
 
-			return myseq;
+			return {
+				handlerid: myseq,
+				toString: function(){
+					return myseq;
+				},
+				remove: function(){
+					self.detach_output(myseq);
+				}
+			};
 		},
 
 		detach_output: function(handler_id) {

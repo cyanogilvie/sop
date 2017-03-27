@@ -15,11 +15,21 @@ define(['dojo/_base/declare', './signal'], function(declare, signal){
 			this._sense = {};
 		},
 
-		destructor: function() {
+		postMixInProperties: function(){
+			// Otherwise _o_state doesn't reflect defaultval if no inputs are
+			// ever attached
+			this._calc_o_state();
+		},
+
+		destroy: function() {
 			var e;
 			for (e in this._inputs) {
 				if (this._inputs.hasOwnProperty(e)) {
-					this._inputs[e].signal.detach_output(this._inputs[e].hid);
+					if (this._inputs[e].hid.remove) {
+						this._inputs[e].hid.remove();
+					} else {
+						this._inputs[e].signal.detach_output(this._inputs[e].hid);
+					}
 					delete this._inputs[e];
 					delete this._sense[e];
 				}
@@ -81,7 +91,11 @@ define(['dojo/_base/declare', './signal'], function(declare, signal){
 			if (this._inputs[inputid]) {
 				input = this._inputs[inputid];
 				delete this._inputs[inputid];
-				input.signal.detach_output(input.signal.hid);
+				if (input.hid.remove) {
+					input.hid.remove();
+				} else {
+					input.signal.detach_output(input.hid);
+				}
 			}
 
 			this._calc_o_state();
