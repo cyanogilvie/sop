@@ -1,0 +1,470 @@
+lappend auto_path .
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest 2
+    namespace import -force ::tcltest::*
+}
+package require sop
+
+oo::class create halfadder { #<<<
+	superclass ::sop::signalsource
+
+	variable {*}{
+		signals
+	}
+
+	constructor {{a ""} {b ""}} {
+		if {[self next] ne ""} next
+
+		# NAND half adder based on https://en.wikipedia.org/wiki/File:Half_adder_using_NAND_gates_only.jpg
+
+		if {$a ne ""} {
+			set signals(A)	$a
+		} else {
+			sop::signal new signals(A) -name "A"
+		}
+		if {$b ne ""} {
+			set signals(B)	$b
+		} else {
+			sop::signal new signals(B) -name "B"
+		}
+
+		sop::gate new signals(nand4) -name "nand4" -mode nand
+		$signals(nand4) attach_input $signals(A)
+		$signals(nand4) attach_input $signals(B)
+
+		sop::gate new signals(nand1) -name "nand1" -mode nand
+		$signals(nand1) attach_input $signals(A)
+		$signals(nand1) attach_input $signals(nand4)
+
+		sop::gate new signals(nand2) -name "nand2" -mode nand
+		$signals(nand2) attach_input $signals(B)
+		$signals(nand2) attach_input $signals(nand4)
+
+		sop::gate new signals(S) -name "S" -mode nand
+		$signals(S) attach_input $signals(nand1)
+		$signals(S) attach_input $signals(nand2)
+
+		# Use a single input AND gate with an inverted input as an inverter
+		# instead of a NAND gate, just to exercise a bit more of the machinery
+		sop::gate new signals(Cout) -name "Cout" -mode and
+		$signals(Cout) attach_input $signals(nand4) inverted
+	}
+}
+
+#>>>
+oo::class create fulladder { #<<<
+	superclass ::sop::signalsource
+
+	variable {*}{
+		signals
+	}
+
+	constructor {{a ""} {b ""} {cin ""}} { #<<<
+		if {[self next] ne ""} next
+
+		if {$cin ne ""} {
+			set signals(Cin)	$cin
+		} else {
+			sop::signal new signals(Cin) -name "Cin"
+		}
+
+		halfadder create stage1 $a $b
+
+		halfadder create stage2	\
+			[stage1 signal_ref S] \
+			$signals(Cin)
+
+		set signals(A) [stage1 signal_ref A]
+		set signals(B) [stage1 signal_ref B]
+
+		sop::gate new signals(Cout)	-name "Cout" -mode or
+		$signals(Cout) attach_input [stage1 signal_ref Cout]
+		$signals(Cout) attach_input [stage2 signal_ref Cout]
+
+		set signals(S)	[stage2 signal_ref S]
+	}
+
+	#>>>
+}
+
+#>>>
+oo::class create register { #<<<
+	superclass ::sop::signalsource
+
+	variable {*}{
+		signals
+		bits
+	}
+
+	method bits {} {set bits}
+	method _init_signals b { #<<<
+		set bits	$b
+		for {set i 0} {$i < $bits} {incr i} {
+			sop::signal new signals(bit$i) -name "bit $i"
+		}
+	}
+
+	#>>>
+	method value args { #<<<
+		switch -- [llength $args] {
+			0	{my _get}
+			1	{my _set [lindex $args 0]}
+			default {error "Too many args"}
+		}
+	}
+
+	#>>>
+	method _set v { #<<<
+		for {set i 0} {$i < $bits} {incr i} {
+			$signals(bit$i) set_state [expr {($v >> $i) & 1}]
+		}
+	}
+
+	#>>>
+	method _get {} { #<<<
+		set acc	0
+
+		for {set i 0} {$i < $bits} {incr i} {
+			incr acc	[expr {2**$i * [$signals(bit$i) state]}]
+		}
+
+		set acc
+	}
+
+	#>>>
+}
+
+#>>>
+oo::class create r8 { #<<<
+	superclass register
+
+	constructor v { #<<<
+		my _init_signals 8
+		if {[self next] ne ""} next
+		my value $v
+	}
+
+	#>>>
+}
+
+#>>>
+oo::class create rippleadder { #<<<
+	superclass register ::sop::signalsource
+
+	variable {*}{
+		bits
+		signals
+	}
+
+	constructor {r1 r2} { #<<<
+		if {[self next] ne ""} next
+
+		if {[$r1 bits] != [$r2 bits]} {
+			error "r1 and r2 must be the same number of bits"
+		}
+
+		set bits	[$r1 bits]
+
+		halfadder create add0 \
+			[$r1 signal_ref bit0] \
+			[$r2 signal_ref bit0]
+		set signals(bit0)	[add0 signal_ref S]
+
+		for {set i 1} {$i < $bits} {incr i} {
+			fulladder create add$i \
+				[$r1 signal_ref bit$i] \
+				[$r2 signal_ref bit$i] \
+				[add[expr {$i-1}] signal_ref Cout]
+			set signals(bit$i)	[add$i signal_ref S]
+		}
+
+		set signals(Cout)	[add[expr {$bits-1}] signal_ref Cout]
+	}
+
+	#>>>
+}
+
+#>>>
+oo::class create delayline { #<<<
+	superclass ::sop::signalsource
+
+	variable {*}{
+		signals
+		delay
+		afterid
+	}
+
+	constructor {in ms} { #<<<
+		if {[self next] ne ""} next
+
+		set afterid	""
+		set delay	$ms
+
+		set signals(in)	$in
+		sop::signal new signals(out) -name "out"
+
+		$signals(in) attach_output [namespace code {my _in_changed}]
+
+		my _in_changed [$signals(in) state]
+	}
+
+	#>>>
+	destructor { #<<<
+		if {$afterid ne ""} {
+			after cancel $afterid
+			set afterid	""
+		}
+		if {[self next] ne ""} next
+	}
+
+	#>>>
+	method _in_changed newstate { #<<<
+		if {$afterid ne ""} {
+			after cancel $afterid
+			set afterid	""
+		}
+		set afterid	[after $delay [list $signals(out) set_state $newstate]]
+	}
+
+	#>>>
+}
+
+#>>>
+
+test sop::signalsource-1.1 {halfadder signals cleanup} -body { #<<<
+	set before	[lsort [lmap obj [concat [info class instances ::sop::signal] [info class instances ::sop::gate]] {$obj cget -name}]]
+	halfadder create add
+	set during	[lsort [lmap obj [concat [info class instances ::sop::signal] [info class instances ::sop::gate]] {$obj cget -name}]]
+	add destroy
+	set after	[lsort [lmap obj [concat [info class instances ::sop::signal] [info class instances ::sop::gate]] {$obj cget -name}]]
+	list $before $during $after
+} -cleanup {
+	unset -nocomplain before during after
+} -result {{} {A B Cout S nand1 nand2 nand4} {}}
+#>>>
+test sop::signalsource-1.2 {fulladder signals cleanup} -body { #<<<
+	set before	[lsort [lmap obj [concat [info class instances ::sop::signal] [info class instances ::sop::gate]] {$obj cget -name}]]
+	fulladder create add
+	set during	[lsort [lmap obj [concat [info class instances ::sop::signal] [info class instances ::sop::gate]] {$obj cget -name}]]
+	add destroy
+	set after	[lsort [lmap obj [concat [info class instances ::sop::signal] [info class instances ::sop::gate]] {$obj cget -name}]]
+	list $before $during $after
+} -cleanup {
+	unset -nocomplain before during after
+} -result [list {} [lsort {A B Cout Cout Cin Cout S S nand1 nand1 nand2 nand2 nand4 nand4}] {}]
+#>>>
+test sop::signalsource-2.1 {signals_available} -body { #<<<
+	halfadder create add
+	dict keys [add signals_available]
+} -cleanup {
+	add destroy
+} -result [lsort -dictionary {A B Cout S nand1 nand2 nand4}]
+#>>>
+test sop::signalsource-3.1 {signal_ref} -body { #<<<
+	halfadder create add
+	[add signal_ref S] name
+} -cleanup {
+	add destroy
+} -result S
+#>>>
+test sop::signalsource-3.2 {signal_ref invalid} -body { #<<<
+	halfadder create add
+	set code	[catch {add signal_ref nonesuch} r o]
+	list $code [dict get $o -errorcode] $r
+} -cleanup {
+	add destroy
+} -result [list 1 {SOP INVALID_SIGNAL nonesuch} {Invalid signal (nonesuch)}]
+#>>>
+test sop::signalsource-4.1 {halfadder signal_state (0 0) -> (0 0)} -body { #<<<
+	halfadder create add
+	[add signal_ref A] set_state 0
+	[add signal_ref B] set_state 0
+	list [add signal_state Cout] [add signal_state S]
+} -cleanup {
+	add destroy
+} -result {0 0}
+#>>>
+test sop::signalsource-4.2 {halfadder signal_state (1 0) -> (0 1)} -body { #<<<
+	halfadder create add
+	[add signal_ref A] set_state 1
+	[add signal_ref B] set_state 0
+	list [add signal_state Cout] [add signal_state S]
+} -cleanup {
+	add destroy
+} -result {0 1}
+#>>>
+test sop::signalsource-4.3 {halfadder signal_state (0 1) -> (0 1)} -body { #<<<
+	halfadder create add
+	[add signal_ref A] set_state 0
+	[add signal_ref B] set_state 1
+	list [add signal_state Cout] [add signal_state S]
+} -cleanup {
+	add destroy
+} -result {0 1}
+#>>>
+test sop::signalsource-4.4 {halfadder signal_state (1 1) -> (1 0)} -body { #<<<
+	halfadder create add
+	[add signal_ref A] set_state 1
+	[add signal_ref B] set_state 1
+	list [add signal_state Cout] [add signal_state S]
+} -cleanup {
+	add destroy
+} -result {1 0}
+#>>>
+test sop::signalsource-5.1 {fulladder signal_state (0 0 0) -> (0 0)} -body { #<<<
+	fulladder create add
+	[add signal_ref A] set_state 0
+	[add signal_ref B] set_state 0
+	[add signal_ref Cin] set_state 0
+	list [add signal_state Cout] [add signal_state S]
+} -cleanup {
+	add destroy
+} -result {0 0}
+#>>>
+test sop::signalsource-5.2 {fulladder signal_state (0 1 0) -> (0 1)} -body { #<<<
+	fulladder create add
+	[add signal_ref A] set_state 0
+	[add signal_ref B] set_state 1
+	[add signal_ref Cin] set_state 0
+	list [add signal_state Cout] [add signal_state S]
+} -cleanup {
+	add destroy
+} -result {0 1}
+#>>>
+test sop::signalsource-5.3 {fulladder signal_state (0 0 1) -> (0 1)} -body { #<<<
+	fulladder create add
+	[add signal_ref A] set_state 0
+	[add signal_ref B] set_state 0
+	[add signal_ref Cin] set_state 1
+	list [add signal_state Cout] [add signal_state S]
+} -cleanup {
+	add destroy
+} -result {0 1}
+#>>>
+test sop::signalsource-5.4 {fulladder signal_state (0 1 1) -> (1 0)} -body { #<<<
+	fulladder create add
+	[add signal_ref A] set_state 0
+	[add signal_ref B] set_state 1
+	[add signal_ref Cin] set_state 1
+	list [add signal_state Cout] [add signal_state S]
+} -cleanup {
+	add destroy
+} -result {1 0}
+#>>>
+test sop::signalsource-5.5 {fulladder signal_state (1 0 0) -> (0 1)} -body { #<<<
+	fulladder create add
+	[add signal_ref A] set_state 1
+	[add signal_ref B] set_state 0
+	[add signal_ref Cin] set_state 0
+	list [add signal_state Cout] [add signal_state S]
+} -cleanup {
+	add destroy
+} -result {0 1}
+#>>>
+test sop::signalsource-5.6 {fulladder signal_state (1 0 1) -> (1 0)} -body { #<<<
+	fulladder create add
+	[add signal_ref A] set_state 1
+	[add signal_ref B] set_state 0
+	[add signal_ref Cin] set_state 1
+	list [add signal_state Cout] [add signal_state S]
+} -cleanup {
+	add destroy
+} -result {1 0}
+#>>>
+test sop::signalsource-5.7 {fulladder signal_state (1 1 0) -> (1 0)} -body { #<<<
+	fulladder create add
+	[add signal_ref A] set_state 1
+	[add signal_ref B] set_state 1
+	[add signal_ref Cin] set_state 0
+	list [add signal_state Cout] [add signal_state S]
+} -cleanup {
+	add destroy
+} -result {1 0}
+#>>>
+test sop::signalsource-5.8 {fulladder signal_state (1 1 1) -> (1 1)} -body { #<<<
+	fulladder create add
+	[add signal_ref A] set_state 1
+	[add signal_ref B] set_state 1
+	[add signal_ref Cin] set_state 1
+	list [add signal_state Cout] [add signal_state S]
+} -cleanup {
+	add destroy
+} -result {1 1}
+#>>>
+test sop::signalsource-6.1 {8 bit ripple adder} -body { #<<<
+	r8 create a	30
+	r8 create b 12
+	rippleadder create radd a b
+	set v1	[radd value]
+	set c1	[radd signal_state Cout]
+	a value 0
+	b value 0
+	set v2	[radd value]
+	set c2	[radd signal_state Cout]
+	a value 135
+	b value 140
+	set v3	[radd value]
+	set c3	[radd signal_state Cout]
+
+	#puts [[radd signal_ref Cout] explain_txt]
+
+	list $v1 $c1 $v2 $c2 $v3 $c3
+} -cleanup {
+	foreach obj {a b radd} {
+		if {[info object isa object $obj]} {
+			$obj destroy
+		}
+	}
+	unset -nocomplain obj v1 v2 v3 c1 c2 c3
+} -result {42 0 0 0 19 1}
+#>>>
+test sop::signalsource-10.1 {waitfor} -body { #<<<
+	sop::signal new in -name "in"
+	delayline create d $in 50
+	set before	[clock microseconds]
+	$in set_state 1
+	list \
+		[d signal_state out] \
+		[catch {d waitfor out 100} r o] \
+		$r \
+		[d signal_state out] \
+		[expr {[set elapsed [expr {([clock microseconds]-$before)/1e6}]] > 0.045 && $elapsed < 0.55 ? "timeok" : $elapsed}]
+} -cleanup {
+	foreach obj d {
+		if {[info object isa object $obj]} {
+			$obj destroy
+		}
+	}
+	unset -nocomplain obj in before elapsed
+} -result {0 0 {} 1 timeok}
+#>>>
+test sop::signalsource-10.2 {waitfor timeout} -body { #<<<
+	sop::signal new in -name "in"
+	delayline create d $in 100
+	set before	[clock microseconds]
+	$in set_state 1
+	list \
+		[d signal_state out] \
+		[catch {d waitfor out 50} r o] \
+		$r \
+		[dict get $o -errorcode] \
+		[d signal_state out] \
+		[expr {[set elapsed [expr {([clock microseconds]-$before)/1e6}]] > 0.045 && $elapsed < 0.55 ? "timeok" : $elapsed}]
+} -cleanup {
+	foreach obj d {
+		if {[info object isa object $obj]} {
+			$obj destroy
+		}
+	}
+	unset -nocomplain obj in before elapsed r o
+} -result {0 1 {Timeout waiting for signal "out"} {SOP TIMEOUT out} 0 timeok}
+#>>>
+
+foreach c {delayline rippleadder r8 register fulladder halfadder} {
+	catch {rename $c {}}
+}
+
+cleanupTests
+return
+
+# vim: ft=tcl foldmethod=marker foldmarker=<<<,>>> ts=4 shiftwidth=4

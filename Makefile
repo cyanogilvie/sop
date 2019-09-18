@@ -6,3 +6,6 @@ clean:
 
 install:
 	tbuild install
+
+test: all
+	tclsh tests/all.tcl $(TESTFLAGS)

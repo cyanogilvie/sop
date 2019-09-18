@@ -1,0 +1,134 @@
+'\"
+.so man.macros
+.TH sop::signal n 1.7 "Tcl-Extensions"
+.HS sop::signal tcl
+.BS
+'\" Note:  do not modify the .SH NAME line immediately below!
+.SH NAME
+sop::signal \- Class representing a programmatically managed signal in the SOP toolkit
+.SH SYNOPSIS
+package require \fBsop\fR ?\fB1.7\fR?
+.sp
+\fB::sop::signal new\fR \fIaccessvar\fR ?\fB-name \fIname\fR?
+.sp
+\fI$accessvar\fR \fBstate\fR ?\fInewstate\fR?
+.br
+\fI$accessvar\fR \fBset_state\fR \fInewstate\fR
+.br
+\fI$accessvar\fR \fBtoggle_state\fR
+.br
+\fI$accessvar\fR \fBattach_output\fR \fIhandler\fR ?\fIcleanup\fR?
+.br
+\fI$accessvar\fR \fBdetach_output\fR \fIhandler\fR
+.br
+\fI$accessvar\fR \fBname\fR
+.br
+\fI$accessvar\fR \fBexplain_txt\fR
+.br
+\fI$accessvar\fR \fBwaitfor\fR \fIsense\fR ?\fItimeout\fR?
+.BE
+.SH DESCRIPTION
+.PP
+\fB::sop::signal\fR is the class representing some boolean state within the
+application, such as whether we are connected to the server, a form has unsaved
+changes, or a value in a form field is valid.  They form the base of the logic
+gate network, and represent the states that the application code knows about.
+Event handlers can be attached to signals that are called when the signal
+changes.  Signal instances bind themselves to a variable so that when the
+variable is unset they are destroyed.  The usual convention is to use an array
+called \fBsignals\fR in a class to store all the signals in that class.  See
+sop::signalsource(n) for a class that provides this and other patterns for
+managing a collection of signals in a class.
+.SH CONSTRUCTING A SIGNAL INSTANCE
+.PP
+The usual pattern for constructing an instance of sop::signal is to use the
+\fBnew\fR method which takes as its first argument the name of the variable to
+bind the instance lifespan to (resolved in the caller's scope).  The
+constructor stores the instance command name in this variable, which is then
+used to access the instance.  The optional \fB-name\fR parameter allows the
+signals to be named, which is helpful when debugging the state of the logic
+gate network.  The default state for signals after construction is false.
+.PP
+.SH METHODS
+.PP
+.TP
+\fI$accessvar\fR \fBstate\fR ?\fInewstate\fR?
+Without the optional \fInewstate\fR argument, return the current state of the
+signal.  If the \fInewstate\fR argument is given, set the state to the supplied
+value, which must be a valid Tcl boolean.
+.TP
+\fI$accessvar\fR \fBset_state\fR \fInewstate\fR
+Set the value of the signal to \fInewstate\fR, which must be a valid Tcl
+boolean value.
+.TP
+\fI$accessvar\fR \fBtoggle_state\fR
+Toggle the state of the signal (ie. perform a logical NOT on the signal).
+.TP
+\fI$accessvar\fR \fBattach_output\fR \fIhandler\fR ?\fIcleanup\fR?
+Attach an event handler which will be called immediately with the current state
+of the signal, and every time the state changes.  The \fIhandler\fR callback
+will be called with a single boolean value appended, which is the new state of
+the signal.  If the optional \fIcleanup\fR callback is supplied, then it will
+be called when the handler is detached (including when this signal is destroyed).
+Both \fIhandler\fR and \fIcleanup\fB will be run in a new coroutine context.
+Returns 1 if \fIhandler\fR was already registered as a callback, 0 otherwise.
+.TP
+\fI$accessvar\fR \fBdetach_output\fR \fIhandler\fR
+Remove \fIhandler\fR from the list of callbacks invoked when the signal's state
+changes.  Will run the \fIcleanup\fR callback if one was supplied to the
+corresponding \fBattach_output\fR call.  Returns 1 if \fIhandler\fR existed
+(and was removed), 0 if it wasn't registered (not an error).
+.TP
+\fI$accessvar\fR \fBname\fR
+Return the value supplied to the \fB-name\fR option.  If no \fB-name\fR option
+was given, return a blank string.
+.TP
+\fI$accessvar\fR \fBexplain_txt\fR
+Return a string with the signal object command, the \fIname\fR given at
+construction time, and the current state, intended for debugging purposes.
+Less useful for plain signal instances than gates.
+.TP
+\fI$accessvar\fR \fBwaitfor\fR \fIsense\fR ?\fItimeout\fR?
+Block and wait for this signal to reach the \fIsense\fR state (which must be a
+valid Tcl boolean value).  If the optional \fItimeout\fR argument is given it
+specifies a maximum amount of time (in milliseconds) to wait for the signal to
+reach that state.  If the timeout expires an exception will be thrown with
+whose errorcode is \fBSOP TIMEOUT\fR \fI$name\fR, where \fI$name\fR is the name
+supplied to the \fB-name\fR option when the signal was constructed.  It could
+also happen that this signal is destroyed before the timeout is reached or the
+\fIsense\fR state is reached, in which case an exception is thrown with the
+errorcode \fBSOP SOURCE_DIED\fR \fI$name\fR.  If \fBwaitfor\fR is called in a
+coroutine context (\fBinfo coroutine\fR isn't blank), then the coroutine will
+be yielded while waiting for the goal state.  If called from outside a
+coroutine the \fBwaitfor\fR method will enter the event loop using vwait to
+wait for the goal state.  In this case the caller should be aware of the
+problems that can be caused by nested vwaits.
+.SH EXAMPLES
+.PP
+Construct a signal representing whether a connection to the server is available,
+and use it to manage the state of a login button:
+.PP
+.CS
+    \fBsop::signal new signals(connected) -name "connected to server"\fR
+
+    \fBproc connected_changed {newstate} {
+        if {$newstate} {
+            .login configure -state normal
+        } else {
+            .login configure -state disabled
+        }
+    }\fR
+
+    \fB$signals(connected) attach_output connected_changed\fR    \fI\(-> calls \fBconnected_changed 0\fR
+.PP
+Some time later, once a connection is established with the server,
+\fB$signals(connected)\fR is set to true to reflect this:
+.PP
+.CS
+    \fB$signals(connected) set_state 1                        \fI\(-> calls \fBconnected_changed 1\fR
+.SH "SEE ALSO"
+sop(n)
+'\" Local Variables:
+'\" mode: nroff
+'\" fill-column: 78
+'\" End:

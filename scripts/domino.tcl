@@ -1,21 +1,11 @@
-# vim: ft=tcl foldmethod=marker foldmarker=<<<,>>> ts=4 shiftwidth=4
-
-cflib::pclass create sop::domino {
-	superclass cflib::baselog
-
-	property name	""		_name_changed
+::sop::pclass create ::sop::domino {
+	property name	""
 	property delay	"idle"
 
 	protected_property after_id	""
 	protected_property outputs	{}
 	protected_property inputs	[dict create]
 	protected_property lock		0
-
-	method _name_changed {} { #<<<
-		set baselog_instancename	$name
-	}
-
-	#>>>
 
 	constructor {accessvar args} { #<<<
 		my configure {*}$args
@@ -24,12 +14,13 @@ cflib::pclass create sop::domino {
 			my configure -name $accessvar
 		}
 
-		upvar $accessvar scopevar
+		upvar 1 $accessvar scopevar
 		set scopevar [self]
 		trace variable scopevar u [my code _scopevar_unset]
 	}
 
 	#>>>
+
 	destructor { #<<<
 		after cancel $after_id
 		foreach dom_obj [dict keys $inputs] {
@@ -39,21 +30,20 @@ cflib::pclass create sop::domino {
 
 	#>>>
 
-	method tip {args} { #<<<
+	method tip args { #<<<
 		if {$lock > 0} return
 
 		if {$after_id ne ""} return
-		my _debug debug "tlc::Domino::tip: ([self]) ($name)"
 		set after_id	[after $delay [my code _tip_outputs]]
 	}
 
 	#>>>
-	method tip_now {args} { #<<<
+	method tip_now args { #<<<
 		my _tip_outputs
 	}
 
 	#>>>
-	method attach_output {handler} { #<<<
+	method attach_output handler { #<<<
 		if {$handler ni $outputs} {
 			lappend outputs $handler
 			return 1
@@ -63,31 +53,30 @@ cflib::pclass create sop::domino {
 	}
 
 	#>>>
-	method detach_output {handler} { #<<<
-		set idx		[lsearch $outputs $handler]
-		set outputs	[lreplace $outputs $idx $idx]
+	method detach_output handler { #<<<
+		set outputs	[lsearch -inline -all -not $outputs $handler]
 	}
 
 	#>>>
-	method attach_input {dom_obj} { #<<<
+	method attach_input dom_obj { #<<<
 		if {![info object isa typeof $dom_obj sop::domino]} {
 			error "$dom_obj isn't a sop::domino"
 		}
 
 		dict set inputs $dom_obj	1
 
-		return [$dom_obj attach_output [my code tip]]
+		$dom_obj attach_output [my code tip]
 	}
 
 	#>>>
-	method detach_input {dom_obj} { #<<<
+	method detach_input dom_obj { #<<<
 		if {![info object isa typeof $dom_obj sop::domino]} {
 			error "$dom_obj isn't a Domino"
 		}
 
 		dict unset inputs $dom_obj
 
-		return [$dom_obj detach_output [my code tip]]
+		$dom_obj detach_output [my code tip]
 	}
 
 	#>>>
@@ -117,17 +106,12 @@ cflib::pclass create sop::domino {
 	method unlock {} { #<<<
 		incr lock -1
 		if {$lock < 0} {
-			puts stderr "[self] lock went below zero!: $lock"
+			my log error "[self] lock went below zero!: $lock"
 		}
 	}
 
 	#>>>
 
-	method _debug {level msg} { #<<<
-#		invoke_handlers debug $level $msg
-	}
-
-	#>>>
 	method _tip_outputs {} { #<<<
 		after cancel $after_id
 		set after_id	""
@@ -142,11 +126,10 @@ cflib::pclass create sop::domino {
 
 	#>>>
 	method _scopevar_unset {args} { #<<<
-		my log debug
 		delete object [self]
 	}
 
 	#>>>
 }
 
-
+# vim: ft=tcl foldmethod=marker foldmarker=<<<,>>> ts=4 shiftwidth=4

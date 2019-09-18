@@ -1,5 +1,5 @@
-tm "sop" {
-	version 1.6.1
+tm sop {
+	version 1.7.0
 
 	summary "State Oriented Programming toolkit"
 
@@ -17,11 +17,8 @@ tm "sop" {
 		connected networks.
 	}
 
-	requires {
-		cflib
-	}
-
 	files {
+		scripts/pclass.tcl
 		scripts/signal.tcl
 		scripts/gate.tcl
 		scripts/signalsource.tcl

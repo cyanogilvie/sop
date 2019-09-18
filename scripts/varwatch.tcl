@@ -4,8 +4,8 @@
 #	onchange()					- Fired when a variable changes value
 #	onchange_info(n1, n2, op)	- Fired when a variable changes value
 
-cflib::pclass create sop::varwatch {
-	superclass sop::signal
+::sop::pclass create ::sop::varwatch {
+	superclass ::sop::signal
 
 	pclass_config {
 		constructor_auto_next	0
@@ -24,17 +24,11 @@ cflib::pclass create sop::varwatch {
 		set afterids		{}
 		array set dominos	{}
 
-		sop::domino new dominos(onchange) -name "[self] onchange"
+		::sop::domino new dominos(onchange) -name "[self] onchange"
 
-		if {"oo::Helpers::cflib" ni [namespace path]} {
-			namespace path [concat [namespace path] {
-				::oo::Helpers::cflib
-			}]
-		}
+		$dominos(onchange) attach_output [namespace code {my invoke_handlers onchange}]
 
-		$dominos(onchange) attach_output [code invoke_handlers onchange]
-
-		upvar $accessvar scopevar
+		upvar 1 $accessvar scopevar
 		next $accessvar
 
 		my configure {*}$args
@@ -58,18 +52,17 @@ cflib::pclass create sop::varwatch {
 
 	#>>>
 
-	method attach_dirtyvar {varname} { #<<<
+	method attach_dirtyvar varname { #<<<
 		if {$varname ni $watchvars} {
 			lappend watchvars	$varname
 		}
-		trace add variable $varname {write unset} [code _var_update]
+		trace add variable $varname {write unset} [namespace code {my _var_update}]
 	}
 
 	#>>>
-	method detach_dirtyvar {varname} { #<<<
-		set idx			[lsearch $watchvars $varname]
-		set watchvars	[lreplace $watchvars $idx $idx]
-		trace remove variable $varname {write unset} [code _var_update]
+	method detach_dirtyvar varname { #<<<
+		set watchvars	[lsearch -inline -all -not $watchvars $varname]
+		trace remove variable $varname {write unset} [namespace code {my _var_update}]
 	}
 
 	#>>>
@@ -86,7 +79,7 @@ cflib::pclass create sop::varwatch {
 				try {
 					uplevel #0 $script
 				} on error {errmsg options} {
-					puts [dict get $options -errorinfo]
+					my log error [dict get $options -errorinfo]
 				}
 			}
 		}
@@ -94,7 +87,7 @@ cflib::pclass create sop::varwatch {
 	}
 
 	#>>>
-	method _on_set_state {pending} { #<<<
+	method _on_set_state pending { #<<<
 		set pending		$afterids
 		set afterids	{}
 		foreach afterid $pending {
@@ -107,7 +100,7 @@ cflib::pclass create sop::varwatch {
 		if {$lock > 0} return
 		my set_state 1
 		if {[my handlers_available onchange_info]} {
-			lappend afterids	[after idle [code fire_onchange $n1 $n2 $op]]
+			lappend afterids	[after idle [namespace code [list my fire_onchange $n1 $n2 $op]]]
 		}
 		$dominos(onchange) tip
 	}

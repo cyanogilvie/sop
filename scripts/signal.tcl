@@ -1,9 +1,5 @@
-# vim: ft=tcl foldmethod=marker foldmarker=<<<,>>> ts=4 shiftwidth=4
-
-cflib::pclass create sop::signal {
-	superclass cflib::handlers cflib::baselog
-
-	property name		""	_name_changed
+::sop::pclass create ::sop::signal {
+	property name		""
 	property debugmode	0
 	property output_handler_warntime	3000
 
@@ -16,14 +12,7 @@ cflib::pclass create sop::signal {
 		seq
 	}
 
-	method _name_changed {} { #<<<
-		set baselog_instancename	$name
-	}
-
-	#>>>
-
 	constructor {accessvar args} { #<<<
-		my variable outputs o_state
 		set name		""
 		set outputs		{}
 		set o_state		0
@@ -35,15 +24,13 @@ cflib::pclass create sop::signal {
 
 		my configure {*}$args
 
-		upvar $accessvar scopevar
+		upvar 1 $accessvar scopevar
 		set scopevar	[self]
 		trace variable scopevar u [namespace code {my _scopevar_unset}]
 	}
 
 	#>>>
 	destructor { #<<<
-		my _debug debug "tlc::Signal::destructor: [self] $name dieing"
-		#trace vdelete scopevar u [namespace code {my _scopevar_unset}]
 		if {$debugmode} {
 			dict for {tag afterid} $afterids {
 				after cancel $afterid
@@ -51,19 +38,17 @@ cflib::pclass create sop::signal {
 			}
 		}
 		foreach output $outputs {
-			my _debug debug "tlc::Signal::destructor: ------ twitch: ($output)"
 			my detach_output $output
 		}
 
 		foreach {key info} [array get changewait] {
-			my _debug debug "notifying waiting changewait($key) of our death"
 			set rest	[lassign $info type state]
 			if {$state ne "waiting"} continue
 			switch -- $type {
 				coro {
 					set coro	[lindex $rest 0]
 					set changewait($key)	[list $type "source_died"]
-					$coro "source_died"
+					after idle [list $coro source_died]
 				}
 
 				vwait {
@@ -71,17 +56,16 @@ cflib::pclass create sop::signal {
 				}
 
 				default {
-					my _debug error "Invalid changewait type ($type) when trying to signal source death"
+					#my _debug error "Invalid changewait type ($type) when trying to signal source death"
 				}
 			}
 		}
-		if {[self next] ne {}} {next}
-		my _debug debug "tlc::Signal::destructor: [self] truely dead"
+		if {[self next] ne {}} next
 	}
 
 	#>>>
 
-	method state {args} { #<<<
+	method state args { #<<<
 		switch -exact -- [llength $args] {
 			0		{set o_state}
 			default	{tailcall my set_state {*}$args}
@@ -89,33 +73,19 @@ cflib::pclass create sop::signal {
 	}
 
 	#>>>
-	method set_state {newstate} { #<<<
-		my variable o_state
-		if {![string is boolean -strict $newstate]} {
-			throw [list not_a_boolean $newstate] \
-					"newstate must be a valid boolean"
-		}
-		if {$newstate} {
-			set normstate	1
-		} else {
-			set normstate	0
-		}
-		my _on_set_state $normstate
-		if {$o_state == $normstate} return
-		set o_state	$normstate
-		my _update_outputs
+
+	method set_state newstate { #<<<
+		my _set_state $newstate
 	}
 
 	#>>>
 	method toggle_state {} { #<<<
-		my variable o_state
 		my set_state [expr {!$o_state}]
 	}
 
 	#>>>
 
 	method attach_output {handler {cleanup {}}} { #<<<
-		my variable outputs
 		if {$handler in $outputs} {
 			return 0
 		}
@@ -131,32 +101,26 @@ cflib::pclass create sop::signal {
 	}
 
 	#>>>
-	method detach_output {handler} { #<<<
-		my _debug debug "tlc::Signal::detach_output: ($handler)"
-		if {$handler in $outputs} {
-			set idx			[lsearch $outputs $handler]
-			set outputs		[lreplace $outputs $idx $idx]
-
-			if {[dict exists $cleanups $handler]} {
-				my _debug debug "tlc::Signal::detach_output: cleaning up ($handler)"
-				my _debug debug "tlc::Signal::detach_output: foo"
-				coroutine coro_handler_cleanup_[incr ::coro_seq] \
-					{*}[dict get $cleanups $handler]
-				my _debug debug "tlc::Signal::detach_output: bar"
-				dict unset cleanups $handler
-			}
-			
-			return 1
-		} else {
-			my _debug debug "tlc::Signal:detach_output: output not found!!\n($handler)\n[join $outputs \n]]\n============================="
+	method detach_output handler { #<<<
+		if {$handler ni $outputs} {
 			return 0
 		}
+
+		set outputs		[lsearch -inline -all -not $outputs $handler]
+
+		if {[dict exists $cleanups $handler]} {
+			coroutine coro_handler_cleanup_[incr ::coro_seq] \
+				{*}[dict get $cleanups $handler]
+			dict unset cleanups $handler
+		}
+		
+		return 1
 	}
 
 	#>>>
 
 	method name {} { #<<<
-		return $name
+		set name
 	}
 
 	#>>>
@@ -179,8 +143,7 @@ cflib::pclass create sop::signal {
 		set myseq	[incr seq]
 
 		if {$timeout != 0} {
-			set afterid \
-					[after $timeout [namespace code [list my _changewait_timeout $myseq]]]
+			set afterid	[after $timeout [namespace code [list my _changewait_timeout $myseq]]]
 			dict set afterids waitfor_$myseq	$afterid
 		}
 
@@ -191,19 +154,11 @@ cflib::pclass create sop::signal {
 				set res	[yield]
 			} else {
 				# Blegh
-				my _debug warning "Warning: using vwait implementation of waitfor.  Calling from a coroutine context is strongly advised"
 				set changewait($myseq)	[list vwait "waiting"]
-				my _debug debug "tlc::Signal::waitfor: Waiting for [namespace which -variable changewait]($myseq)"
 				vwait [namespace which -variable changewait]($myseq)
 				set res	[lindex $changewait($myseq) 1]
 			}
 			if {[string is boolean $res] && [my state] != $normsense} {
-				log warning "Woken up by transient spike while waiting for state $sense, waiting for more permanent change ($name)"
-				?? {
-					if {[info object class [self]] eq "::sop::gate"} {
-						log warning [my explain_txt]
-					}
-				}
 				set resolved	0
 			} else {
 				set resolved	1
@@ -230,13 +185,13 @@ cflib::pclass create sop::signal {
 				return
 			}
 
-			"timeout" {
-				throw [list timeout $signame] \
+			timeout {
+				throw [list SOP TIMEOUT $signame] \
 						"Timeout waiting for signal \"$signame\""
 			}
 
-			"source_died" {
-				throw [list source_died $signame] \
+			source_died {
+				throw [list SOP SOURCE_DIED $signame] \
 						"Source died while waiting for signal \"$signame\""
 			}
 
@@ -248,17 +203,16 @@ cflib::pclass create sop::signal {
 
 	#>>>
 
-	method _update_output {handler} { #<<<
-		my variable o_state
+	method _update_output handler { #<<<
+		if {$handler ni $outputs} {
+			# This can happen if a previously updated output removed this one, but
+			# we're still working through the list
+			return
+		}
 
-		# This can happen in a previously updated output removed this one, but
-		# we're still working through the list
-		if {$handler ni $outputs} return
-
-		#puts stderr "Signal::_update_output($o_state): $name ([self]) update output ($handler)"
 		if {$debugmode} {
 			set pending_afterid	[after $output_handler_warntime \
-					[namespace code [list my _throw_hissy $handler]]]
+					[namespace code [list my _warn_slow $handler]]]
 			dict set afterids update_output_$handler	$pending_afterid
 		}
 		try {
@@ -271,87 +225,88 @@ cflib::pclass create sop::signal {
 			after cancel $pending_afterid
 			dict unset afterids	update_output_$handler
 		}
-		#puts stderr "Signal::_update_output: $name ([self]) done"
 	}
 
 	#>>>
 	method _update_outputs {} { #<<<
-		my variable outputs
 		foreach output $outputs {
 			my _update_output $output
 		}
-		my _debug debug "tlc::Signal::_update_outputs: Flagging changewaits: ([array names changewait])"
 		foreach {key info} [array get changewait] {
-			my _debug debug "tlc::Signal::_update_outputs: flagging state change for waiting vwait: changewait($key) to ($o_state)"
 			set rest	[lassign $info type state]
 			if {$state ne "waiting"} continue
 			switch -- $type {
 				coro {
 					set coro	[lindex $rest 0]
-					set changewait($key)	[list "coro" $o_state]
+					set changewait($key)	[list coro $o_state]
 					after idle [list $coro $o_state]
 				}
 
 				vwait {
-					set changewait($key)	[list "vwait" $o_state]
+					set changewait($key)	[list vwait $o_state]
 				}
 
 				default {
-					my _debug error "Invalid changewait type: ($type)"
+					my log error "Invalid changewait type: ($type)"
 				}
 			}
 		}
 	}
 
 	#>>>
-	method _debug {level msg} { #<<<
-		my invoke_handlers _debug $level $msg
+	method _on_set_state pending { #<<<
 	}
 
 	#>>>
-	method _on_set_state {pending} { #<<<
+	method _warn_slow handler { #<<<
+		my log warning "name: ($name) obj: ([self]) taking way too long to update output for handler: ($handler)"
 	}
 
 	#>>>
-	method _throw_hissy {handler} { #<<<
-		log warning "name: ($name) obj: ([self]) taking way too long to update output for handler: ($handler)"
-	}
-
-	#>>>
-	method _scopevar_unset {args} { #<<<
-		#puts stderr "Signal::_scopevar_unset: $name ([self]) scopevar unset"
-		if {$debugmode} {
-			my _debug debug "tlc::Signal::_scopevar_unset"
-		}
+	method _scopevar_unset args { #<<<
 		my destroy
 	}
 
 	#>>>
 	method _changewait_timeout {myseq} { #<<<
-		if {![info exists changewait($myseq)]} {
-			my _debug error "cannot timeout: changewait($myseq) vanished!"
-			return
-		}
+		if {![info exists changewait($myseq)]} return
 		set rest	[lassign $changewait($myseq) type state]
 		if {$state ne "waiting"} return
 		switch -- $type {
 			coro {
 				set coro	[lindex $rest 0]
-				set changewait($myseq)	[list "coro" "timeout"]
-				after idle [list $coro "timeout"]
+				set changewait($myseq)	{coro timeout}
+				after idle [list $coro timeout]
 			}
 
 			vwait {
-				set changewait($myseq)	[list "vwait" "timeout"]
+				set changewait($myseq)	{vwait timeout}
 			}
 
 			default {
-				my _debug error "Invalid changewait type: ($type)"
+				my log error "Invalid changewait type: ($type)"
 			}
 		}
 	}
 
 	#>>>
+	method _set_state newstate { #<<<
+		if {![string is boolean -strict $newstate]} {
+			throw [list SOP INVALID_SIGNAL_VALUE $newstate] \
+					"newstate must be a valid boolean"
+		}
+		if {$newstate} {
+			set normstate	1
+		} else {
+			set normstate	0
+		}
+		my _on_set_state $normstate
+		if {$o_state == $normstate} return
+		set o_state	$normstate
+		my _update_outputs
+	}
+
+	#>>>
 }
 
-
+# vim: ft=tcl foldmethod=marker foldmarker=<<<,>>> ts=4 shiftwidth=4

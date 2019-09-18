@@ -1,0 +1,33 @@
+'\"
+.so man.macros
+.TH sop n 1.7 "Tcl-Extensions"
+.HS sop tcl
+.BS
+'\" Note:  do not modify the .SH NAME line immediately below!
+.SH NAME
+sop \- State Oriented Programming Toolkit
+.SH SYNOPSIS
+package require \fBsop\fR ?\fB1.7\fR?
+.sp
+\fB::sop::signal new\fR \fIaccessvar\fR \fB-name \fIname\fR
+.br
+\fB::sop::gate new\fR \fIaccessvar\fR \fB-name \fIname\fR \fB-mode \fImode\fR \fB-default \fIdefault\fR
+.sp
+.BE
+.SH DESCRIPTION
+.PP
+As concurrency and network-distributed programming becomes more widely
+used as a design technique, the traditional linear and simple event
+driven paradigms begin to run into difficulties in realising optimal
+parallelism in a robust and maintainable way.
+.PP
+SOP (State Oriented Programming) conceives of such systems as a
+collection of state networks.  Program flow is implicit as code
+handlers are dispatched as the result of state changes.  These
+handlers, or other events driven by sources like network I/O and GUIs
+change the state of appropriate signals, which ripple through their
+connected networks.
+'\" Local Variables:
+'\" mode: nroff
+'\" fill-column: 78
+'\" End:

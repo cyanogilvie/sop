@@ -1,0 +1,575 @@
+lappend auto_path .
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest 2
+    namespace import -force ::tcltest::*
+}
+package require sop
+
+test sop::gate-1.1 {Construct sop::gate, destroyed on scopevar unset} -body { #<<<
+	sop::gate new sig
+	set o	$sig
+	list [info object isa object $o][unset sig] [info object isa object $o]
+} -cleanup {
+	unset -nocomplain sig o
+} -result {1 0}
+#>>>
+test sop::gate-1.2 {Construct sop::gate, -name supplied} -body { #<<<
+	sop::gate new sig -name test-1.2
+	$sig name
+} -cleanup {
+	unset -nocomplain sig
+} -result test-1.2
+#>>>
+test sop::gate-1.3 {Construct sop::gate, cget -name} -body { #<<<
+	sop::gate new sig -name test-1.3
+	$sig cget -name
+} -cleanup {
+	unset -nocomplain sig
+} -result test-1.3
+#>>>
+test sop::gate-1.4 {Construct sop::gate, configure -name} -body { #<<<
+	sop::gate new sig -name test-1.4
+	$sig configure -name test-1.4-updated
+	list [$sig cget -name] [$sig name]
+} -cleanup {
+	unset -nocomplain sig
+} -result {test-1.4-updated test-1.4-updated}
+#>>>
+test sop::gate-1.5 {Construct sop::gate, -default true} -body { #<<<
+	sop::gate new sig -name test-1.4 -default true
+	$sig state
+} -cleanup {
+	unset -nocomplain sig
+} -result 1
+#>>>
+test sop::gate-1.6.1 {Construct sop::gate, -mode and} -body { #<<<
+	sop::gate new sig -name test-1.4 -mode and
+	$sig cget -mode
+} -cleanup {
+	unset -nocomplain sig
+} -result and
+#>>>
+test sop::gate-1.6.2 {Construct sop::gate, -mode or} -body { #<<<
+	sop::gate new sig -name test-1.4 -mode or
+	$sig cget -mode
+} -cleanup {
+	unset -nocomplain sig
+} -result or
+#>>>
+test sop::gate-1.6.3 {Construct sop::gate, -mode nand} -body { #<<<
+	sop::gate new sig -name test-1.4 -mode nand
+	$sig cget -mode
+} -cleanup {
+	unset -nocomplain sig
+} -result nand
+#>>>
+test sop::gate-1.6.4 {Construct sop::gate, -mode nor} -body { #<<<
+	sop::gate new sig -name test-1.4 -mode nor
+	$sig cget -mode
+} -cleanup {
+	unset -nocomplain sig
+} -result nor
+#>>>
+test sop::gate-1.6.5 {Construct sop::gate, -mode invalid} -body { #<<<
+	sop::gate new sig -name test-1.4 -mode invalid
+} -cleanup {
+	unset -nocomplain sig
+} -returnCodes error -result {-mode must be one of (and, nand, nor, or)}
+#>>>
+test sop::gate-1.6.6 {Construct sop::gate, -mode default} -body { #<<<
+	sop::gate new sig -name test-1.4
+	$sig cget -mode
+} -cleanup {
+	unset -nocomplain sig
+} -result or
+#>>>
+test sop::gate-2.1 {attach_output, initial default} -setup { #<<<
+	set states	{}
+} -body {
+	sop::gate new sig
+	$sig attach_output {apply {newstate {lappend ::states $newstate}}}
+	set states
+} -cleanup {
+	unset -nocomplain sig states
+} -result 0
+#>>>
+test sop::gate-2.2 {set_state on gate} -body { #<<<
+	sop::gate new sig
+	set code	[catch {
+		$sig set_state true
+	} r o]
+	list $code [dict get $o -errorcode] $r
+} -cleanup {
+	unset -nocomplain sig code r o
+} -result [list 1 {SOP SET_STATE_ON_GATE} {Cannot call set_state on a gate}]
+#>>>
+test sop::gate-2.3 {state on gate, no args} -body { #<<<
+	sop::gate new sig
+	$sig state
+} -cleanup {
+	unset -nocomplain sig
+} -result 0
+#>>>
+test sop::gate-2.4 {state on gate, with arg} -body { #<<<
+	sop::gate new sig
+	set code	[catch {
+		$sig state true
+	} r o]
+	list $code [dict get $o -errorcode]
+} -cleanup {
+	unset -nocomplain sig code o
+} -result [list 1 {TCL WRONGARGS}]
+#>>>
+test sop::gate-3.1 {state method, default} -body { #<<<
+	sop::signal new sig
+	$sig state
+} -cleanup {
+	unset -nocomplain sig
+} -result 0
+#>>>
+test sop::gate-3.1 {attach_output, -mode or, -default true} -setup { #<<<
+	set states	{}
+	sop::signal new sig(a) -name "test-3.1-a"
+	sop::signal new sig(b) -name "test-3.1-b"
+	sop::signal new sig(c) -name "test-3.1-c"
+	$sig(c) set_state true
+} -body {
+	sop::gate new sig(gate) -mode or -name "test-3.1-gate" -default true
+	$sig(gate) attach_output {apply {newstate {lappend ::states $newstate}}}	;# Initial: 1
+	$sig(gate) attach_input $sig(a)			;# Edge 1 -> 0  (default to "or" of 1 false input)
+	$sig(gate) attach_input $sig(b)
+	$sig(gate) attach_input $sig(c)			;# Edge 0 -> 1
+	$sig(b) set_state true
+	$sig(c) set_state false
+	$sig(b) set_state false					;# Edge 1 -> 0
+	unset -nocomplain sig(a) sig(b) sig(c)	;# Edge 0 -> 1 (default true)
+	set states
+} -cleanup {
+	unset -nocomplain sig states
+} -result {1 0 1 0 1}
+#>>>
+test sop::gate-3.2 {attach_output, -mode and, -default true} -setup { #<<<
+	set states	{}
+	sop::signal new sig(a) -name "test-3.2-a"
+	sop::signal new sig(b) -name "test-3.2-b"
+	sop::signal new sig(c) -name "test-3.2-c"
+	$sig(c) set_state true
+} -body {
+	sop::gate new sig(gate) -mode and -name "test-3.2-gate" -default true
+	$sig(gate) attach_output {apply {newstate {lappend ::states $newstate}}}	;# Initial: 1
+	$sig(gate) attach_input $sig(a)			;# Edge 1 -> 0  (default to "and" of 1 false input)
+	$sig(gate) attach_input $sig(b)
+	$sig(gate) attach_input $sig(c)
+	$sig(a) set_state true
+	$sig(b) set_state true					;# Edge 0 -> 1
+	$sig(c) set_state false					;# Edge 1 -> 0
+	unset -nocomplain sig(a) sig(b) sig(c)	;# Edge 0 -> 1 (default true)
+	set states
+} -cleanup {
+	unset -nocomplain sig states
+} -result {1 0 1 0 1}
+#>>>
+test sop::gate-3.3 {attach_output, -mode nand, -default true} -setup { #<<<
+	set states	{}
+	sop::signal new sig(a) -name "test-3.3-a"
+	sop::signal new sig(b) -name "test-3.3-b"
+	sop::signal new sig(c) -name "test-3.3-c"
+	$sig(a) set_state true
+} -body {
+	sop::gate new sig(gate) -mode nand -name "test-3.3-gate" -default true
+	$sig(gate) attach_output {apply {newstate {lappend ::states $newstate}}}	;# Initial: 1
+	$sig(gate) attach_input $sig(a)			;# Edge 1 -> 0  (default to "and" of 1 false input)
+	$sig(gate) attach_input $sig(b)			;# Edge 0 -> 1
+	$sig(gate) attach_input $sig(c)
+	$sig(b) set_state true
+	$sig(c) set_state true					;# Edge 1 -> 0
+	unset -nocomplain sig(a) sig(b) sig(c)	;# Edge 0 -> 1 (default true)
+	set states
+} -cleanup {
+	unset -nocomplain sig states
+} -result {1 0 1 0 1}
+#>>>
+test sop::gate-3.4 {attach_output, -mode nor, -default true} -setup { #<<<
+	set states	{}
+	sop::signal new sig(a) -name "test-3.4-a"
+	sop::signal new sig(b) -name "test-3.4-b"
+	sop::signal new sig(c) -name "test-3.4-c"
+	$sig(a) set_state true
+} -body {
+	sop::gate new sig(gate) -mode nor -name "test-3.4-gate" -default true
+	$sig(gate) attach_output {apply {newstate {lappend ::states $newstate}}}	;# Initial: 1
+	$sig(gate) attach_input $sig(a)			;# Edge 1 -> 0  (default to "and" of 1 false input)
+	$sig(gate) attach_input $sig(b)
+	$sig(gate) attach_input $sig(c)
+	$sig(a) set_state false					;# Edge 0 -> 1
+	$sig(c) set_state true					;# Edge 1 -> 0
+	unset -nocomplain sig(a) sig(b) sig(c)	;# Edge 0 -> 1 (default true)
+	set states
+} -cleanup {
+	unset -nocomplain sig states
+} -result {1 0 1 0 1}
+#>>>
+if 0 {
+test sop::signal-3.2 {state method, true} -body { #<<<
+	sop::signal new sig
+	$sig set_state true
+	$sig state
+} -cleanup {
+	unset -nocomplain sig
+} -result 1
+#>>>
+test sop::signal-3.3 {state method, new state arg} -body { #<<<
+	sop::signal new sig
+	$sig state true
+	$sig state
+} -cleanup {
+	unset -nocomplain sig
+} -result 1
+#>>>
+test sop::signal-2.3 {attach_output, set_state true (redundant)} -setup { #<<<
+	set states	{}
+} -body {
+	sop::signal new sig
+	$sig attach_output {apply {newstate {lappend ::states $newstate}}}
+	$sig set_state true
+	$sig set_state true
+	set states
+} -cleanup {
+	unset -nocomplain sig states
+} -result {0 1}
+#>>>
+test sop::signal-3.1 {attach_output, toggle_state} -setup { #<<<
+	set states	{}
+} -body {
+	sop::signal new sig
+	$sig attach_output {apply {newstate {lappend ::states $newstate}}}
+	$sig toggle_state
+	$sig toggle_state
+	$sig toggle_state
+	set states
+} -cleanup {
+	unset -nocomplain sig states
+} -result {0 1 0 1}
+#>>>
+test sop::signal-4.1 {deattach_output} -setup { #<<<
+	set states	{}
+} -body {
+	sop::signal new sig
+	$sig attach_output {apply {newstate {lappend ::states $newstate}}}
+	$sig set_state 1
+	$sig detach_output {apply {newstate {lappend ::states $newstate}}}
+	$sig set_state 0
+	$sig set_state 1
+	$sig attach_output {apply {newstate {lappend ::states $newstate}}}
+	set states
+} -cleanup {
+	unset -nocomplain sig states
+} -result {0 1 1}
+#>>>
+test sop::signal-5.1 {explain_txt} -body { #<<<
+	sop::signal new sig -name "test-5.1"
+	$sig explain_txt
+} -cleanup {
+	unset -nocomplain sig
+} -match glob -result "::oo::Obj* \"test-5.1\": 0\n"
+#>>>
+
+# waitfor, no coroutine
+test sop::signal-10.1 {waitfor, no coroutine} -setup { #<<<
+	sop::signal new sig -name "test-10.1"
+	set afterid	[after 100 [list $sig set_state 1]]
+} -body {
+	set before	[clock microseconds]
+	$sig waitfor 1
+	set elapsed	[expr {([clock microseconds] - $before) / 1e6}]
+	list [expr {$elapsed > 0.095 && $elapsed < 0.15}] [$sig state]
+} -cleanup {
+	after cancel $afterid
+	unset -nocomplain sig afterid elapsed
+} -result {1 1}
+#>>>
+test sop::signal-10.2 {waitfor, no coroutine, wait for false} -setup { #<<<
+	sop::signal new sig -name "test-10.2"
+	$sig set_state 1
+	set afterid	[after 100 [list $sig set_state 0]]
+} -body {
+	set before	[clock microseconds]
+	$sig waitfor 0
+	set elapsed	[expr {([clock microseconds] - $before) / 1e6}]
+	list [expr {$elapsed > 0.095 && $elapsed < 0.15}] [$sig state]
+} -cleanup {
+	after cancel $afterid
+	unset -nocomplain sig afterid elapsed
+} -result {1 0}
+#>>>
+test sop::signal-10.3 {waitfor, no coroutine, already match} -setup { #<<<
+	sop::signal new sig -name "test-10.3"
+	$sig set_state 1
+	set afterid	[after 100 [list $sig set_state 1]]
+} -body {
+	set before	[clock microseconds]
+	$sig waitfor 1
+	set elapsed	[expr {([clock microseconds] - $before) / 1e6}]
+	list [expr {$elapsed < 0.01}] [$sig state]
+} -cleanup {
+	after cancel $afterid
+	unset -nocomplain sig afterid elapsed
+} -result {1 1}
+#>>>
+test sop::signal-10.4 {waitfor, no coroutine, already match, wait for false} -setup { #<<<
+	sop::signal new sig -name "test-10.4"
+	$sig set_state 0
+	set afterid	[after 100 [list $sig set_state 0]]
+} -body {
+	set before	[clock microseconds]
+	$sig waitfor 0
+	set elapsed	[expr {([clock microseconds] - $before) / 1e6}]
+	list [expr {$elapsed < 0.01}] [$sig state]
+} -cleanup {
+	after cancel $afterid
+	unset -nocomplain sig afterid elapsed
+} -result {1 0}
+#>>>
+test sop::signal-11.1 {waitfor true, no coroutine, timeout} -setup { #<<<
+	sop::signal new sig -name "test-11.1"
+	set afterid	[after 100 [list $sig set_state 1]]
+} -body {
+	set before	[clock microseconds]
+	set code [catch {
+		$sig waitfor 1 50
+	} r o]
+	set elapsed	[expr {([clock microseconds] - $before) / 1e6}]
+	list \
+		$code \
+		[expr {$elapsed > 0.045 && $elapsed < .055 ? "timeok" : $elapsed}] \
+		[$sig state] \
+		[dict get $o -errorcode] \
+		$r
+} -cleanup {
+	after cancel $afterid
+	unset -nocomplain sig afterid elapsed code r o
+} -result {1 timeok 0 {SOP TIMEOUT test-11.1} {Timeout waiting for signal "test-11.1"}}
+#>>>
+test sop::signal-12.1 {waitfor true, no coroutine, bounce, timeout} -setup { #<<<
+	sop::signal new sig -name "test-12.1"
+	set afterid	[after 100 [string map [list %sig% [list $sig]] {
+	   	%sig% set_state 1
+	   	%sig% set_state 0
+	}]]
+} -body {
+	set before	[clock microseconds]
+	set code [catch {
+		$sig waitfor 1 50
+	} r o]
+	set elapsed	[expr {([clock microseconds] - $before) / 1e6}]
+	list \
+		$code \
+		[expr {$elapsed > 0.045 && $elapsed < .055 ? "timeok" : $elapsed}] \
+		[$sig state] \
+		[dict get $o -errorcode] \
+		$r
+} -cleanup {
+	after cancel $afterid
+	unset -nocomplain sig afterid elapsed code r o
+} -result {1 timeok 0 {SOP TIMEOUT test-12.1} {Timeout waiting for signal "test-12.1"}}
+#>>>
+test sop::signal-12.2 {waitfor true, no coroutine, bounce} -setup { #<<<
+	sop::signal new sig -name "test-12.1"
+	set afterid	[after 50 [string map [list %sig% [list $sig]] {
+	   	%sig% set_state 1
+	   	%sig% set_state 0
+	}]]
+	set afterid2	[after 100 [string map [list %sig% [list $sig]] {
+	   	%sig% set_state 1
+	}]]
+} -body {
+	set before	[clock microseconds]
+	$sig waitfor 1 120
+	set elapsed	[expr {([clock microseconds] - $before) / 1e6}]
+	list \
+		[expr {$elapsed > 0.095 && $elapsed < .105 ? "timeok" : $elapsed}] \
+		[$sig state]
+} -cleanup {
+	after cancel $afterid
+	after cancel $afterid2
+	unset -nocomplain sig afterid afterid2 elapsed
+} -result {timeok 1}
+#>>>
+test sop::signal-12.3 {waitfor true, no coroutine, source_died} -setup { #<<<
+	sop::signal new sig -name "test-12.3"
+	set afterid	[after 50 [list $sig destroy]]
+} -body {
+	set before	[clock microseconds]
+	set code	[catch {
+		$sig waitfor 1 120
+	} r o]
+	set elapsed	[expr {([clock microseconds] - $before) / 1e6}]
+	list \
+		$code \
+		[expr {$elapsed > 0.045 && $elapsed < .055 ? "timeok" : $elapsed}] \
+		[info object isa object $sig] \
+		[dict get $o -errorcode] \
+		$r
+} -cleanup {
+	after cancel $afterid
+	unset -nocomplain sig afterid elapsed code r o
+} -result {1 timeok 0 {SOP SOURCE_DIED test-12.3} {Source died while waiting for signal "test-12.3"}}
+#>>>
+
+# waitfor, with coroutine
+coroutine coro_[incr coroseq] apply {{} {
+	try {
+		test sop::signal-20.1 {waitfor, no coroutine} -setup { #<<<
+			sop::signal new sig -name "test-20.1"
+			set afterid	[after 100 [list $sig set_state 1]]
+		} -body {
+			set before	[clock microseconds]
+			$sig waitfor 1
+			set elapsed	[expr {([clock microseconds] - $before) / 1e6}]
+			list [expr {$elapsed > 0.095 && $elapsed < 0.15}] [$sig state]
+		} -cleanup {
+			after cancel $afterid
+			unset -nocomplain sig afterid elapsed
+		} -result {1 1}
+		#>>>
+		test sop::signal-20.2 {waitfor, no coroutine, wait for false} -setup { #<<<
+			sop::signal new sig -name "test-20.2"
+			$sig set_state 1
+			set afterid	[after 100 [list $sig set_state 0]]
+		} -body {
+			set before	[clock microseconds]
+			$sig waitfor 0
+			set elapsed	[expr {([clock microseconds] - $before) / 1e6}]
+			list [expr {$elapsed > 0.095 && $elapsed < 0.15}] [$sig state]
+		} -cleanup {
+			after cancel $afterid
+			unset -nocomplain sig afterid elapsed
+		} -result {1 0}
+		#>>>
+		test sop::signal-20.3 {waitfor, no coroutine, already match} -setup { #<<<
+			sop::signal new sig -name "test-20.3"
+			$sig set_state 1
+			set afterid	[after 100 [list $sig set_state 1]]
+		} -body {
+			set before	[clock microseconds]
+			$sig waitfor 1
+			set elapsed	[expr {([clock microseconds] - $before) / 1e6}]
+			list [expr {$elapsed < 0.01}] [$sig state]
+		} -cleanup {
+			after cancel $afterid
+			unset -nocomplain sig afterid elapsed
+		} -result {1 1}
+		#>>>
+		test sop::signal-20.4 {waitfor, no coroutine, already match, wait for false} -setup { #<<<
+			sop::signal new sig -name "test-20.4"
+			$sig set_state 0
+			set afterid	[after 100 [list $sig set_state 0]]
+		} -body {
+			set before	[clock microseconds]
+			$sig waitfor 0
+			set elapsed	[expr {([clock microseconds] - $before) / 1e6}]
+			list [expr {$elapsed < 0.01}] [$sig state]
+		} -cleanup {
+			after cancel $afterid
+			unset -nocomplain sig afterid elapsed
+		} -result {1 0}
+		#>>>
+		test sop::signal-21.1 {waitfor true, no coroutine, timeout} -setup { #<<<
+			sop::signal new sig -name "test-21.1"
+			set afterid	[after 100 [list $sig set_state 1]]
+		} -body {
+			set before	[clock microseconds]
+			set code [catch {
+				$sig waitfor 1 50
+			} r o]
+			set elapsed	[expr {([clock microseconds] - $before) / 1e6}]
+			list \
+				$code \
+				[expr {$elapsed > 0.045 && $elapsed < .055 ? "timeok" : $elapsed}] \
+				[$sig state] \
+				[dict get $o -errorcode] \
+				$r
+		} -cleanup {
+			after cancel $afterid
+			unset -nocomplain sig afterid elapsed code r o
+		} -result {1 timeok 0 {SOP TIMEOUT test-21.1} {Timeout waiting for signal "test-21.1"}}
+		#>>>
+		test sop::signal-22.1 {waitfor true, no coroutine, bounce, timeout} -setup { #<<<
+			sop::signal new sig -name "test-22.1"
+			set afterid	[after 100 [string map [list %sig% [list $sig]] {
+				%sig% set_state 1
+				%sig% set_state 0
+			}]]
+		} -body {
+			set before	[clock microseconds]
+			set code [catch {
+				$sig waitfor 1 50
+			} r o]
+			set elapsed	[expr {([clock microseconds] - $before) / 1e6}]
+			list \
+				$code \
+				[expr {$elapsed > 0.045 && $elapsed < .055 ? "timeok" : $elapsed}] \
+				[$sig state] \
+				[dict get $o -errorcode] \
+				$r
+		} -cleanup {
+			after cancel $afterid
+			unset -nocomplain sig afterid elapsed code r o
+		} -result {1 timeok 0 {SOP TIMEOUT test-22.1} {Timeout waiting for signal "test-22.1"}}
+		#>>>
+		test sop::signal-22.2 {waitfor true, no coroutine, bounce} -setup { #<<<
+			sop::signal new sig -name "test-22.1"
+			set afterid	[after 50 [string map [list %sig% [list $sig]] {
+				%sig% set_state 1
+				%sig% set_state 0
+			}]]
+			set afterid2	[after 100 [string map [list %sig% [list $sig]] {
+				%sig% set_state 1
+			}]]
+		} -body {
+			set before	[clock microseconds]
+			$sig waitfor 1 120
+			set elapsed	[expr {([clock microseconds] - $before) / 1e6}]
+			list \
+				[expr {$elapsed > 0.095 && $elapsed < .105 ? "timeok" : $elapsed}] \
+				[$sig state]
+		} -cleanup {
+			after cancel $afterid
+			after cancel $afterid2
+			unset -nocomplain sig afterid afterid2 elapsed
+		} -result {timeok 1}
+		#>>>
+		test sop::signal-22.3 {waitfor true, no coroutine, source_died} -setup { #<<<
+			sop::signal new sig -name "test-22.3"
+			set afterid	[after 50 [list $sig destroy]]
+		} -body {
+			set before	[clock microseconds]
+			set code	[catch {
+				$sig waitfor 1 120
+			} r o]
+			set elapsed	[expr {([clock microseconds] - $before) / 1e6}]
+			list \
+				$code \
+				[expr {$elapsed > 0.045 && $elapsed < .055 ? "timeok" : $elapsed}] \
+				[info object isa object $sig] \
+				[dict get $o -errorcode] \
+				$r
+		} -cleanup {
+			after cancel $afterid
+			unset -nocomplain sig afterid elapsed code r o
+		} -result {1 timeok 0 {SOP SOURCE_DIED test-22.3} {Source died while waiting for signal "test-22.3"}}
+		#>>>
+	} finally {
+		set ::coro_done	1
+	}
+}}
+
+if {![info exists ::coro_done]} {
+	vwait ::coro_done
+}
+}
+
+cleanupTests
+return
+
+# vim: ft=tcl foldmethod=marker foldmarker=<<<,>>> ts=4 shiftwidth=4

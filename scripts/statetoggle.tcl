@@ -1,8 +1,7 @@
 # vim: ft=tcl foldmethod=marker foldmarker=<<<,>>> ts=4 shiftwidth=4
 
-cflib::pclass create sop::statetoggle {
-	superclass sop::gate
-	mixin cflib::baselog
+::sop::pclass create ::sop::statetoggle {
+	superclass ::sop::gate
 
 	pclass_config {
 		constructor_auto_next	0
@@ -21,14 +20,8 @@ cflib::pclass create sop::statetoggle {
 	constructor {accessvar args} { #<<<
 		set deleting	0
 
-		upvar $accessvar scopevar
+		upvar 1 $accessvar scopevar
 		next $accessvar
-
-		if {"oo::Helpers::cflib" ni [namespace path]} {
-			namespace path [concat [namespace path] {
-				::oo::Helpers::cflib
-			}]
-		}
 
 		set configureargs	{}
 		# Process in-line configure arguments
@@ -41,43 +34,29 @@ cflib::pclass create sop::statetoggle {
 			error "Widget: ($target) is not valid"
 		}
 
-		#bind $target <Destroy> +[format {
-		#	if {[info object isa object %1$s]} {
-		#		try {
-		#			%2$s
-		#		} on error {errmsg options} {
-		#			puts stderr "Error destroying (%1$s): [dict get $options -errorinfo]"
-		#		}
-		#	}
-		#} [list [self]] [code destroy]]
 		bind $target <Destroy> +[list apply {
-			{obj} {
+			obj {
 				if {[info object isa object $obj]} {$obj destroy}
 			}
 		} [self]]
 
-		my configure -mode "and" {*}$configureargs
-		my configure -name "tlc::StateToggle internal [self] \"$name\""
+		my configure -mode and {*}$configureargs
+		my configure -name "sop::statetoggle internal [self] \"$name\""
 
-		my attach_output [code _stategate_update]
+		my attach_output [namespace code {my _stategate_update}]
 	}
 
 	#>>>
 	destructor { #<<<
 		set deleting		1
 		my log debug "tlc::StateToggle ($target) ([self]) going away"
-		my detach_output [code _stategate_update]
-		if {[winfo exists $target]} {
-			#catch {
-			#	trace remove command $target delete [list [self] destroy]
-			#}
-		}
+		my detach_output [namespace code {my _stategate_update}]
 	}
 
 	#>>>
 
 	method attach_signal {signal {a_sense normal}} {my attach_input $signal $a_sense}
-	method detach_signal {signal} {my detach_input $signal}
+	method detach_signal signal {my detach_input $signal}
 	method force_update {} {my _stategate_update [my state]}
 	method target {} {set target}
 	method deleting {} {set deleting}
@@ -87,7 +66,7 @@ cflib::pclass create sop::statetoggle {
 			append build	"Last error configuring target: $lasterror" \n
 		}
 		append build [explain_txt]
-		return $build
+		set build
 	}
 
 	#>>>

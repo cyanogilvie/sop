@@ -1,14 +1,12 @@
-# vim: ft=tcl foldmethod=marker foldmarker=<<<,>>> ts=4 shiftwidth=4
-
-cflib::pclass create sop::gate {
-	superclass sop::signal
+::sop::pclass create ::sop::gate {
+	superclass ::sop::signal
 
 	pclass_config {
 		constructor_auto_next	0
 	}
 
-	property mode		"or"	_mode_changed
-	property default	0		_default_changed
+	property mode		or	_mode_changed
+	property default	0	_default_changed
 
 	method _mode_changed {} { #<<<
 		set valid_modes	{and nand nor or}
@@ -33,12 +31,12 @@ cflib::pclass create sop::gate {
 	}
 
 	constructor {accessvar args} { #<<<
-		upvar $accessvar scopevar
+		upvar 1 $accessvar scopevar
 		next $accessvar
 
-		set inputs		[dict create]
-		set sense		[dict create]
-		set isvar		[dict create]
+		set inputs		{}
+		set sense		{}
+		set isvar		{}
 		set var_inputs	{}
 
 		my configure {*}$args
@@ -55,7 +53,7 @@ cflib::pclass create sop::gate {
 					$input detach_output [my code _input_update $input]
 				}
 			} on error {errmsg options} {
-				puts stderr "Error detatching input ($input) during game destructor: $errmsg\n[dict get $options -errorinfo]"
+				my log error "Error detatching input ($input) during gate destructor: $errmsg\n[dict get $options -errorinfo]"
 			}
 		}
 	}
@@ -67,22 +65,19 @@ cflib::pclass create sop::gate {
 			error "$gate_obj isn't a sop::signal"
 		}
 
-		#$gate_obj register_handler debug [my code _debug]
 		dict set sense $gate_obj	[expr {$a_sense ne "normal"}]
 
-		return [$gate_obj attach_output [my code _input_update $gate_obj] \
-				[my code _cleanup $gate_obj]]
+		$gate_obj attach_output [my code _input_update $gate_obj] \
+				[my code _cleanup $gate_obj]
 	}
 
 	#>>>
-	method detach_input {gate_obj} { #<<<
+	method detach_input gate_obj { #<<<
 		if {![my _isa_signal $gate_obj]} {
 			error "$gate_obj isn't a sop::signal"
 		}
 
-		my _debug debug "tlc::Gate::detach_input ([self]): ($gate_obj)"
-
-		set ok	[catch {unset inputs($gate_obj)} msg]
+		catch {unset inputs($gate_obj)}
 		dict unset inputs $gate_obj
 		
 		$gate_obj detach_output [my code _input_update $gate_obj]
@@ -96,7 +91,7 @@ cflib::pclass create sop::gate {
 			my detach_var_input $vinput
 		}
 		foreach gate_obj [dict keys $inputs] {
-			detach_input $gate_obj
+			my detach_input $gate_obj
 		}
 	}
 
@@ -114,9 +109,8 @@ cflib::pclass create sop::gate {
 	}
 
 	#>>>
-	method detach_var_input {varname} { #<<<
-		set idx			[lsearch $var_inputs $varname]
-		set var_inputs	[lreplace $var_inputs $idx $idx]
+	method detach_var_input varname { #<<<
+		set var_inputs	[lsearch -inline -all -not $var_inputs $varname]
 		trace remove variable $varname {write unset} \
 				[my code _var_input_update $varname]
 
@@ -129,18 +123,21 @@ cflib::pclass create sop::gate {
 
 	#>>>
 
+	# Prevent the state from being explicitly set for gates
+	method state {} next
+	method set_state newstate {throw {SOP SET_STATE_ON_GATE} "Cannot call set_state on a gate"}
+
 	method explain_state {} { #<<<
-		return $inputs
+		set inputs
 	}
 
 	#>>>
 	method explain_txt {{depth 0}} { #<<<
 		set txt	""
-		set firstdepth	[expr {($depth > 0) ? $depth-1 : 0}]
+		set firstdepth	[expr {$depth > 0 ? $depth-1 : 0}]
 		append txt "[self] \"[[self] name]\": [[self] state]\[$default\] [string toupper $mode] (\n"
 		foreach key [dict keys $inputs] {
-	#		append txt "[string repeat {  } $firstdepth]"
-			append txt "[string repeat {  } $depth]"
+			append txt [string repeat {  } $depth]
 			append txt [dict get $inputs $key]
 			append txt [expr {[dict get $sense $key] ? "i" : " "}]
 			if {[dict exists $isvar $key]} {
@@ -151,7 +148,7 @@ cflib::pclass create sop::gate {
 		}
 		append txt "[string repeat {  } $depth])\n"
 
-		return $txt
+		set txt
 	}
 
 	#>>>
@@ -160,13 +157,13 @@ cflib::pclass create sop::gate {
 		if {[dict size $inputs] == 0} {
 			set new_o_state		$default
 		} else {
-			switch [string tolower $mode] {
+			switch -nocase -- $mode {
 				"and" - "nor"	{set assume	1}
 				"nand" - "or"	{set assume	0}
 			}
 
 			dict for {input state} $inputs {
-				switch [string tolower $mode] {
+				switch -nocase -- $mode {
 					"and" - "nand"	{
 						if {!($state)} {
 							set assume	[expr {!($assume)}]
@@ -186,7 +183,7 @@ cflib::pclass create sop::gate {
 			set new_o_state		$assume
 		}
 
-		my set_state $new_o_state
+		my _set_state $new_o_state
 	}
 
 	#>>>
@@ -194,7 +191,6 @@ cflib::pclass create sop::gate {
 		if {[dict get $sense $gate_obj]} {
 			set state	[expr {!$state}]
 		}
-		my _debug debug "tlc::Gate::input_update ([self]) ($name): ($gate_obj) ($state)"
 		dict set inputs $gate_obj	$state
 
 		my _calc_o_state
@@ -202,7 +198,7 @@ cflib::pclass create sop::gate {
 
 	#>>>
 	method _var_input_update {varname n1 n2 op} { #<<<
-		upvar $varname value
+		upvar 1 $varname value
 		switch $op {
 			write {
 				if {![info exists value]} {
@@ -226,19 +222,16 @@ cflib::pclass create sop::gate {
 	}
 
 	#>>>
-	method _cleanup {gate_obj} { #<<<
+	method _cleanup gate_obj { #<<<
 		my detach_input $gate_obj
 	}
 
 	#>>>
-	method _isa_signal {obj} { #<<<
-		expr {
-			[info object isa typeof $obj sop::signal] ||
-			([itcl::is object $obj] && [$obj isa tlc::Signal])
-		}
+	method _isa_signal obj { #<<<
+		info object isa typeof $obj ::sop::signal
 	}
 
 	#>>>
 }
 
-
+# vim: ft=tcl foldmethod=marker foldmarker=<<<,>>> ts=4 shiftwidth=4
