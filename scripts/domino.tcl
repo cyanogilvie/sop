@@ -8,6 +8,11 @@
 	protected_property lock		0
 
 	constructor {accessvar args} { #<<<
+		if {[llength [info commands log]] == 0} {
+			proc log {lvl msg} {
+				puts stderr "domino $lvl: $msg"
+			}
+		}
 		my configure {*}$args
 
 		if {$name eq ""} {
@@ -106,7 +111,7 @@
 	method unlock {} { #<<<
 		incr lock -1
 		if {$lock < 0} {
-			my log error "[self] lock went below zero!: $lock"
+			log error "[self] lock went below zero!: $lock"
 		}
 	}
 
@@ -119,7 +124,7 @@
 			try {
 				coroutine coro_domino_output_[incr ::coro_seq] {*}$output
 			} on error {errmsg options} {
-				my log error "\nerror updating output ($output):\n\t$errmsg\n[dict get $options -errorinfo]"
+				log error "\nerror updating output ($output):\n\t$errmsg\n[dict get $options -errorinfo]"
 			}
 		}
 	}

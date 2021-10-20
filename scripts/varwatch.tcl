@@ -19,6 +19,11 @@
 	}
 
 	constructor {accessvar args} { #<<<
+		if {[llength [info commands log]] == 0} {
+			proc log {lvl msg} {
+				puts stderr "domino $lvl: $msg"
+			}
+		}
 		set watchvars		{}
 		set lock			0
 		set afterids		{}
@@ -79,7 +84,7 @@
 				try {
 					uplevel #0 $script
 				} on error {errmsg options} {
-					my log error [dict get $options -errorinfo]
+					log error [dict get $options -errorinfo]
 				}
 			}
 		}

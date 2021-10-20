@@ -31,6 +31,12 @@
 	}
 
 	constructor {accessvar args} { #<<<
+		if {[llength [info commands log]] == 0} {
+			proc log {lvl msg} {
+				puts stderr "domino $lvl: $msg"
+			}
+		}
+
 		upvar 1 $accessvar scopevar
 		next $accessvar
 
@@ -53,7 +59,7 @@
 					$input detach_output [my code _input_update $input]
 				}
 			} on error {errmsg options} {
-				my log error "Error detatching input ($input) during gate destructor: $errmsg\n[dict get $options -errorinfo]"
+				log error "Error detatching input ($input) during gate destructor: $errmsg\n[dict get $options -errorinfo]"
 			}
 		}
 	}

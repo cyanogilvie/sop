@@ -18,6 +18,11 @@
 		set o_state		0
 		set seq			0
 
+		if {[llength [info commands log]] == 0} {
+			proc log {lvl msg} {
+				puts stderr "Signal $lvl: $msg"
+			}
+		}
 		set cleanups	[dict create]
 		set afterids	[dict create]
 		array set changewait	{}
@@ -219,7 +224,7 @@
 			coroutine coro_update_output_[incr ::coro_seq] \
 					{*}$handler $o_state
 		} on error {errmsg options} {
-			my log error "\n\"$name\" error updating output ($o_state) handler: ($handler) $name ([self]): $errmsg\n[dict get $options -errorinfo]"
+			log error "\n\"$name\" error updating output ($o_state) handler: ($handler) $name ([self]): $errmsg\n[dict get $options -errorinfo]"
 		}
 		if {$debugmode} {
 			after cancel $pending_afterid
@@ -247,7 +252,7 @@
 				}
 
 				default {
-					my log error "Invalid changewait type: ($type)"
+					log error "Invalid changewait type: ($type)"
 				}
 			}
 		}
@@ -259,7 +264,7 @@
 
 	#>>>
 	method _warn_slow handler { #<<<
-		my log warning "name: ($name) obj: ([self]) taking way too long to update output for handler: ($handler)"
+		log warning "name: ($name) obj: ([self]) taking way too long to update output for handler: ($handler)"
 	}
 
 	#>>>
@@ -284,7 +289,7 @@
 			}
 
 			default {
-				my log error "Invalid changewait type: ($type)"
+				log error "Invalid changewait type: ($type)"
 			}
 		}
 	}

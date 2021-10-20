@@ -18,6 +18,11 @@
 	}
 
 	constructor {accessvar args} { #<<<
+		if {[llength [info commands log]] == 0} {
+			proc log {lvl msg} {
+				puts stderr "domino $lvl: $msg"
+			}
+		}
 		set deleting	0
 
 		upvar 1 $accessvar scopevar
@@ -49,7 +54,7 @@
 	#>>>
 	destructor { #<<<
 		set deleting		1
-		my log debug "tlc::StateToggle ($target) ([self]) going away"
+		log debug "tlc::StateToggle ($target) ([self]) going away"
 		my detach_output [namespace code {my _stategate_update}]
 	}
 
@@ -77,20 +82,20 @@
 			set stategate_state	$newstate
 		}
 		if {$explain} {
-			my log debug [my explain_txt]
+			log debug [my explain_txt]
 		}
 		set switchlist	{}
 		dict for {key values} $toggles {
 			lappend switchlist	$key [lindex $values $stategate_state]
 		}
 		if {$debugmode} {
-			my log debug "[self] Updating $target: ([state]) ($switchlist)"
+			log debug "[self] Updating $target: ([state]) ($switchlist)"
 		}
 		try {
 			$target configure {*}$switchlist
 		} on error {errmsg options} {
 			set lasterror	$errmsg
-			my log error "\nError configuring $target: $errmsg\n[dict get $options -errorinfo]"
+			log error "\nError configuring $target: $errmsg\n[dict get $options -errorinfo]"
 		}
 	}
 
