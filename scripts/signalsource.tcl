@@ -2,6 +2,7 @@
 	constructor {} { #<<<
 		if {[self next] ne {}} next
 		array set signals	{}
+		array set dominos	{}
 	}
 
 	#>>>
@@ -13,12 +14,21 @@
 	#>>>
 
 	protected_property signals
+	protected_property dominos
 
 	method signal_ref signal { #<<<
 		if {![info exists signals($signal)]} {
 			throw [list SOP INVALID_SIGNAL $signal] "Invalid signal ($signal)"
 		}
 		set signals($signal)
+	}
+
+	#>>>
+	method domino_ref domino { #<<<
+		if {![info exists dominos($domino)]} {
+			throw [list SOP INVALID_DOMINO $domino] "Invalid domino ($domino)"
+		}
+		set dominos($domino)
 	}
 
 	#>>>
@@ -40,6 +50,11 @@
 	#>>>
 	method signals_available {} { #<<<
 		lsort -dictionary -stride 2 -index 0 [array get signals]
+	}
+
+	#>>>
+	method dominos_available {} { #<<<
+		lsort -dictoinary -stride 2 -index 0 [array get dominos]
 	}
 
 	#>>>
